@@ -229,13 +229,13 @@ def start_dummy_server():
         logger.error(f"❌ Failed to start HTTP server: {e}")
         raise
 
-async def main():
+def main():
     app = setup_bot()
     logger.info("✅ Bot is running with anime, echo, and broadcast 👻")
-    await app.run_polling()
+    app.run_polling()
 
 if __name__ == "__main__":
     logger.debug("🧵 Starting health check server thread")
     threading.Thread(target=start_dummy_server, daemon=True).start()
     logger.debug("🧵 Health check server thread started")
-    asyncio.run(main())
+    main()
