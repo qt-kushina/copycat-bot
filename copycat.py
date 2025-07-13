@@ -248,8 +248,10 @@ def setup_bot():
     app.add_handler(CommandHandler("ping", ping_command))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CallbackQueryHandler(broadcast_choice, pattern="^broadcast_"))
-    app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), message_handler))
+    
     app.add_handler(MessageHandler(filters.ALL & filters.User(user_id=OWNER_ID), broadcast_content))
+    app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), message_handler))
+
     app.post_init = set_commands
     return app
 
