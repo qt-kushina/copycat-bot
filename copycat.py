@@ -189,6 +189,12 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message:
         return
 
+    # Track user/group IDs for broadcast
+    if message.chat.type == "private":
+        user_ids.add(message.chat_id)
+    elif message.chat.type in ["group", "supergroup"]:
+        group_ids.add(message.chat_id)
+
     text = message.text or ""
     lowered = text.lower()
 
