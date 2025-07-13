@@ -4,6 +4,7 @@ import logging
 import random
 import time
 import aiohttp
+import telegram
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
@@ -73,24 +74,40 @@ async def get_random_anime_image():
             return random.choice(images)["path"]
 
 # Send anime wallpaper
-async def send_start_image(chat_id, user, bot, reply_to_message_id=None):
+async def send_start_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
     image_url = await get_random_anime_image()
     if not image_url:
-        await bot.send_message(chat_id=chat_id, text="⚠️ Failed to get anime image.")
+        if loading_msg:
+            await loading_msg.edit_text("⚠️ Failed to get anime image.")
+        else:
+            await bot.send_message(chat_id=chat_id, text="⚠️ Failed to get anime image.")
         return
 
     name = f"{user.first_name} {user.last_name or ''}".strip()
     mention = f"<a href='tg://user?id={user.id}'>{name}</a>"
     greeting = random.choice(welcome_messages).format(mention=mention)
 
-    await bot.send_photo(
-        chat_id=chat_id,
-        photo=image_url,
-        caption=greeting,
-        reply_to_message_id=reply_to_message_id
-    )
+    if loading_msg:
+        # Edit the "🔎" message into a photo message with caption
+        await bot.edit_message_media(
+            chat_id=chat_id,
+            message_id=loading_msg.message_id,
+            media=telegram.InputMediaPhoto(
+                media=image_url,
+                caption=greeting,
+                parse_mode="HTML"
+            )
+        )
+    else:
+        await bot.send_photo(
+            chat_id=chat_id,
+            photo=image_url,
+            caption=greeting,
+            reply_to_message_id=reply_to_message_id,
+            parse_mode="HTML"
+        )
 
-# /start
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     chat_id = update.effective_chat.id
@@ -102,7 +119,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.effective_chat.type in ["group", "supergroup"]:
         group_ids.add(chat_id)
 
-    await send_start_image(chat_id, user, context.bot)
+    loading_msg = await context.bot.send_message(chat_id=chat_id, text="🔎")
+    await send_start_image(chat_id, user, context.bot, loading_msg=loading_msg)
 
 # /ping
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
