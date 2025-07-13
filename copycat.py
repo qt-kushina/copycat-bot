@@ -110,7 +110,7 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("🛰️ Pinging...")
     latency = int((time.time() - start_time) * 1000)
     await msg.edit_text(
-        f"🏓<b><a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms</b>"
+        f"🏓 <b><a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms</b>"
     )
 
 # /broadcast
