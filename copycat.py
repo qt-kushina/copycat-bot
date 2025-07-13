@@ -152,6 +152,7 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
+# ✅ Main handler: triggers + echo
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     message = update.message
@@ -162,10 +163,12 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = message.text or ""
     lowered = text.lower()
 
+    # Trigger: fuckrupa
     if "fuckrupa" in lowered:
         await send_start_image(message.chat_id, user, context.bot)
         return
 
+    # Echo in private chat (all content)
     if message.chat.type == "private":
         try:
             await context.bot.copy_message(
@@ -177,6 +180,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning(f"Echo failed in private: {e}")
         return
 
+    # Echo in group (only if replied to bot)
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
         try:
             await context.bot.copy_message(
