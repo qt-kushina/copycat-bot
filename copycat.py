@@ -4,12 +4,14 @@ import logging
 import random
 import time
 import aiohttp
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler, filters, ContextTypes
-)
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler,
+    filters, ContextTypes, Defaults
+)
 
 # Load sensitive values from environment
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
@@ -82,7 +84,6 @@ async def send_start_image(chat_id, user, bot, reply_to_message_id=None):
         chat_id=chat_id,
         photo=image_url,
         caption=greeting,
-        parse_mode="HTML",
         reply_to_message_id=reply_to_message_id
     )
 
@@ -104,8 +105,7 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("🛰️ Pinging...")
     latency = int((time.time() - start_time) * 1000)
     await msg.edit_text(
-        f"🏓 <a href='https://t.me/TheCryptoElders'>PONG!</a> Bot responded in <b>{latency}ms</b> ⚡",
-        parse_mode="HTML"
+        f"🏓 <a href='https://t.me/TheCryptoElders'>PONG!</a> Bot responded in <b>{latency}ms</b> ⚡"
     )
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -194,7 +194,7 @@ async def set_commands(application):
     ])
 
 def setup_bot():
-    app = ApplicationBuilder().token(BOT_TOKEN).parse_mode("HTML").build()
+    app = ApplicationBuilder().token(BOT_TOKEN).defaults(Defaults(parse_mode="HTML")).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ping", ping_command))
     app.add_handler(CommandHandler("broadcast", broadcast))
@@ -212,18 +212,15 @@ class DummyHandler(BaseHTTPRequestHandler):
         self.wfile.write(b"Sakura bot is alive!")
 
     def do_HEAD(self):
-        logger.debug(f"🌐 HTTP HEAD request from {self.client_address[0]}")
         self.send_response(200)
         self.end_headers()
 
     def log_message(self, format, *args):
-        # Silence default HTTP logs
-        pass
+        pass  # silence default logs
 
 def start_dummy_server():
     logger.info("🌐 Starting HTTP health check server")
     port = int(os.environ.get("PORT", 5000))
-
     try:
         server = HTTPServer(("0.0.0.0", port), DummyHandler)
         logger.info(f"✅ HTTP server listening on 0.0.0.0:{port}")
