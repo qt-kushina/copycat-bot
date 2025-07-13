@@ -152,9 +152,11 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
-# Main handler: triggers + echo with copy_message
+# Main handler: triggers + echo
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
     message = update.message
+
     if not message:
         return
 
@@ -163,7 +165,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Trigger: fuckrupa
     if "fuckrupa" in lowered:
-        await send_start_image(message.chat_id, update.effective_user, context.bot)
+        await send_start_image(message.chat_id, user, context.bot)
         return
 
     # Echo in private chat (all content)
@@ -175,10 +177,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_id=message.message_id
             )
         except Exception as e:
-            logger.warning(f"Echo (private) failed: {e}")
+            logger.warning(f"Echo failed in private: {e}")
         return
 
-    # Echo in group if user replies to bot's message
+    # Echo in group (only if replied to bot)
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
         try:
             await context.bot.copy_message(
@@ -188,7 +190,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_to_message_id=message.message_id
             )
         except Exception as e:
-            logger.warning(f"Echo (group) failed: {e}")
+            logger.warning(f"Echo failed in group: {e}")
 
 async def set_commands(application):
     await application.bot.set_my_commands([
