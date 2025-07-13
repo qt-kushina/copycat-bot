@@ -172,12 +172,13 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = message.text or ""
     lowered = text.lower()
 
-    # Trigger word
+    # Trigger word - now works in all chats
     if "fuckrupa" in lowered:
-        await send_start_image(message.chat_id, user, context.bot)
+        reply_id = message.message_id if message.chat.type in ["group", "supergroup"] else None
+        await send_start_image(message.chat_id, user, context.bot, reply_to_message_id=reply_id)
         return
 
-    # Private: Echo all
+    # Private: Echo all messages
     if message.chat.type == "private":
         try:
             await context.bot.copy_message(
@@ -215,11 +216,8 @@ def setup_bot():
     app.add_handler(CommandHandler("ping", ping_command))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CallbackQueryHandler(broadcast_choice, pattern="^broadcast_"))
-
-    # 👉 Echo + trigger must come before broadcast
     app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), message_handler))
     app.add_handler(MessageHandler(filters.ALL & filters.User(user_id=OWNER_ID), broadcast_content))
-
     app.post_init = set_commands
     return app
 
