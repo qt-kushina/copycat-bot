@@ -193,7 +193,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lowered = text.lower()
 
     # Trigger word - now works in all chats
-    if "fuckrupa" in lowered:
+    if "billu" in lowered:
         reply_id = message.message_id if message.chat.type in ["group", "supergroup"] else None
 
         # Send 🔎 first and edit it later with image+caption
