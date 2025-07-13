@@ -182,7 +182,6 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
-# Echo + trigger handler
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     message = update.message
@@ -196,7 +195,14 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Trigger word - now works in all chats
     if "fuckrupa" in lowered:
         reply_id = message.message_id if message.chat.type in ["group", "supergroup"] else None
-        await send_start_image(message.chat_id, user, context.bot, reply_to_message_id=reply_id)
+
+        # Send 🔎 first and edit it later with image+caption
+        loading_msg = await context.bot.send_message(
+            chat_id=message.chat_id,
+            text="🔎",
+            reply_to_message_id=reply_id
+        )
+        await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
         return
 
     # Private: Echo all messages
