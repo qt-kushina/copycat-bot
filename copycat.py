@@ -111,15 +111,8 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     latency = int((time.time() - start_time) * 1000)
 
-    if latency < 100:
-        color = "🟢"
-    elif latency < 300:
-        color = "🟡"
-    else:
-        color = "🔴"
-
     await msg.edit_text(
-        f"🏓 <b><a href='https://t.me/SoulMeetsHQ'>PONG!</a> {color} {latency}ms</b>",
+        f"🏓 <a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms",
         disable_web_page_preview=True
     )
 
