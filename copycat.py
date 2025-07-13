@@ -108,9 +108,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     start_time = time.time()
     msg = await update.message.reply_text("🛰️ Pinging...")
+
     latency = int((time.time() - start_time) * 1000)
+
+    if latency < 100:
+        color = "🟢"
+    elif latency < 300:
+        color = "🟡"
+    else:
+        color = "🔴"
+
     await msg.edit_text(
-        f"🏓 <b><a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms</b>"
+        f"🏓 <b><a href='https://t.me/SoulMeetsHQ'>PONG!</a> {color} {latency}ms</b>",
+        disable_web_page_preview=True
     )
 
 # /broadcast
