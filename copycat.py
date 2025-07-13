@@ -27,41 +27,41 @@ broadcast_mode = {}
 
 # Welcome messages
 welcome_messages = [
-    "Hey {mention}, take a look at this masterpiece! 🎨",
-    "This one's for you, {mention}. Hope you like it! 😄",
-    "{mention}, here’s something special I found just for you! ✨",
-    "Feast your eyes on this beauty, {mention}! 👁️",
-    "A fresh anime wallpaper for you, {mention}. Enjoy! 🍥",
-    "{mention}, how about this one? Looks amazing, right? 😍",
-    "This one reminded me of your vibe, {mention}. 😎",
-    "Another awesome pick just dropped, {mention}. Take a look! 🎴",
-    "{mention}, you’ve got to see this one. It’s fire! 🔥",
-    "This wallpaper screams perfection. What do you think, {mention}? 💯",
-    "Get ready, {mention}. This one is absolutely stunning! 💫",
-    "{mention}, you deserve the best. Check this out! 💎",
-    "Let’s add some charm to your screen, {mention}. 🎇",
-    "An aesthetic moment just for you, {mention}. 🖼️",
-    "{mention}, catch this beauty before it disappears! 🌠",
-    "Take a break and enjoy this view, {mention}. 🌄",
-    "This image made me think of you, {mention}. Isn’t it awesome? 💭",
-    "{mention}, you’re going to love this anime shot! 📸",
-    "Dive into the anime world with this, {mention}! 🌊",
-    "{mention}, this one belongs on your home screen. 📱",
-    "{mention}, boost your vibe with this wallpaper! ⚡",
-    "Brace yourself, {mention}. This one's stunning! 🌀",
-    "A dose of anime aesthetics coming your way, {mention}! 🌸",
-    "Freshly picked and pixel-perfect for you, {mention}. 🧩",
-    "{mention}, your wallpaper game just got stronger! 💪",
-    "Step into the scene with this one, {mention}. 🎬",
-    "Feeling the anime energy with this, aren’t you {mention}? 🔋",
-    "Get lost in the art, {mention}. It’s a vibe. 🎭",
-    "{mention}, this one's a straight 10/10. 🌟",
-    "A new masterpiece has arrived for you, {mention}. 🚀"
+    "Hello {mention} just wanted to share something with love 💖",
+    "This is sent with care {mention} nothing more nothing less 💌",
+    "Wishing you a peaceful moment {mention} 💫",
+    "No reason {mention} just something warm for your heart 🌸",
+    "You crossed my thoughts {mention} so here is this 🌷",
+    "May this bring quiet joy to your day {mention} 🕊️",
+    "No noise no rush {mention} just a soft pause 💗",
+    "Take this small piece of peace {mention} 🌼",
+    "You are here and that is enough {mention} 🌙",
+    "For your gentle soul {mention} with kindness 💝",
+    "This carries no message {mention} only warmth 💞",
+    "Nothing big {mention} just a reminder you matter 🍃",
+    "Let this be a calm second in your day {mention} ✨",
+    "No need to smile {mention} just feel what is here 💓",
+    "This is not special {mention} but it is real 💗",
+    "You deserve kindness without reason {mention} 🌤️",
+    "A quiet hello for your heart {mention} 🎀",
+    "This carries no answers {mention} only softness 🌺",
+    "Even in silence {mention} this speaks with love 🕯️",
+    "This is for you {mention} without asking why 💌",
+    "Not for fixing just for feeling {mention} 💮",
+    "Let this rest with you {mention} no need to do anything 🧸",
+    "You are not forgotten {mention} even in stillness 🌌",
+    "There is nothing to prove {mention} just take this 💘",
+    "Without words without reason {mention} just presence 🌷",
+    "It is okay to pause {mention} let this moment be yours 🫶",
+    "With no pressure no weight {mention} just love 💞",
+    "This is here for you {mention} without expectation 🍥",
+    "Your presence matters {mention} quietly and truly 🌈",
+    "May this bring a quiet breath to your heart {mention} 🌿"
 ]
 
 # Fetch random anime image
 async def get_random_anime_image():
-    url = "https://wallhaven.cc/api/v1/search?q=anime&ratios=16x9&sorting=random&categories=100&purity=100"
+    url = "https://wallhaven.cc/api/v1/search?q=flower&ratios=16x9&sorting=random&categories=100&purity=100"
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as resp:
             if resp.status != 200:
@@ -110,7 +110,7 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text("🛰️ Pinging...")
     latency = int((time.time() - start_time) * 1000)
     await msg.edit_text(
-        f"🏓 <a href='https://t.me/TheCryptoElders'>PONG!</a> Bot responded in <b>{latency}ms</b> ⚡"
+        f"🏓<b><a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms</b>"
     )
 
 # /broadcast
@@ -205,8 +205,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Set bot commands
 async def set_commands(application):
     await application.bot.set_my_commands([
-        ("start", "Start bot and get anime image"),
-        ("ping", "Check bot latency")
+        ("start", "🎨 Get an image")
     ])
 
 # Setup bot
