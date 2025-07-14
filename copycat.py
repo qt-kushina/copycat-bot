@@ -14,7 +14,6 @@ from telegram.ext import (
     filters, ContextTypes, Defaults
 )
 
-# Load sensitive values from environment
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 
@@ -26,11 +25,8 @@ user_ids = set()
 group_ids = set()
 broadcast_mode = {}
 
-# Emoji list for caption messages
 soft_emojis = ["⛅", "🌤️", "❣️", "💖", "🌸", "💝", "💘", "💗", "💓", "💞", "❤️‍🔥", "🌹", "🌺", "🌼", "🌷", "💐", "🕊️", "🐱", "🐈", "💌"]
-
-# Emoji list for reactions
-reaction_emojis = ["👍", "❤️", "🔥", "👏", "😁", "😢", "🤔", "❤️‍🔥", "🎉", "💯", "👎"]
+reaction_emojis = ["👍", "❤️", "🔥", "👏", "😁", "😢", "🤔", "😮", "🎉", "💯", "👎"]
 
 def get_random_emojis(count=1):
     return random.choice(soft_emojis)
@@ -38,7 +34,6 @@ def get_random_emojis(count=1):
 def get_random_reaction():
     return random.choice(reaction_emojis)
 
-# Welcome messages
 welcome_messages = [
     "Hello {mention} just wanted to share something with love 💖",
     "This is sent with care {mention} nothing more nothing less 💌",
@@ -72,7 +67,6 @@ welcome_messages = [
     "May this bring a quiet breath to your heart {mention} 🌿"
 ]
 
-# Fetch random anime image
 async def get_random_anime_image():
     url = "https://wallhaven.cc/api/v1/search?q=flower&ratios=16x9&sorting=random&categories=100&purity=100"
     async with aiohttp.ClientSession() as session:
@@ -85,7 +79,6 @@ async def get_random_anime_image():
                 return None
             return random.choice(images)["path"]
 
-# Send anime wallpaper
 async def send_start_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
     image_url = await get_random_anime_image()
     if not image_url:
@@ -118,7 +111,6 @@ async def send_start_image(chat_id, user, bot, loading_msg=None, reply_to_messag
             parse_mode="HTML"
         )
 
-# React to messages
 async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
@@ -149,8 +141,8 @@ async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.warning(f"React failed in group: {e}")
 
-# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await react_to_message(update, context)
     user = update.effective_user
     chat_id = update.effective_chat.id
 
@@ -165,10 +157,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
     await send_start_image(chat_id, user, context.bot, loading_msg=loading_msg)
 
-    await react_to_message(update, context)  # ✅ react to /start
-
-# /ping
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await react_to_message(update, context)
     start_time = time.time()
     msg = await update.message.reply_text("🛰️ Pinging...")
     latency = int((time.time() - start_time) * 1000)
@@ -177,9 +167,6 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         disable_web_page_preview=True
     )
 
-    await react_to_message(update, context)  # ✅ react to /ping
-
-# /broadcast
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != OWNER_ID:
         return
@@ -220,8 +207,8 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning(f"Broadcast to {cid} failed: {e}")
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
-# Handles incoming messages
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await react_to_message(update, context)
     user = update.effective_user
     message = update.message
     if not message:
@@ -232,7 +219,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = message.text or ""
     lowered = text.lower()
 
-    # Trigger keyword reaction in any chat
     if "billu" in lowered:
         reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
         emoji_msg = get_random_emojis()
@@ -242,10 +228,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_to_message_id=reply_id
         )
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
-        await react_to_message(update, context)
         return
 
-    # Echo in private
     if chat_type == "private":
         try:
             await context.bot.copy_message(
@@ -255,10 +239,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             logger.warning(f"Echo failed in private: {e}")
-        await react_to_message(update, context)
         return
 
-    # Echo in group only if replying to bot
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
         try:
             await context.bot.copy_message(
@@ -269,15 +251,12 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             logger.warning(f"Echo failed in group: {e}")
-        await react_to_message(update, context)
 
-# Set bot commands
 async def set_commands(application):
     await application.bot.set_my_commands([
         ("start", "🎨 Get an image")
     ])
 
-# Setup bot
 def setup_bot():
     app = ApplicationBuilder().token(BOT_TOKEN).defaults(Defaults(parse_mode="HTML")).build()
     app.add_handler(CommandHandler("start", start))
@@ -289,7 +268,6 @@ def setup_bot():
     app.post_init = set_commands
     return app
 
-# Dummy HTTP server
 class DummyHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         self.send_response(200)
@@ -303,7 +281,6 @@ class DummyHandler(BaseHTTPRequestHandler):
     def log_message(self, format, *args):
         pass
 
-# Start dummy server
 def start_dummy_server():
     logger.info("🌐 Starting HTTP health check server")
     port = int(os.environ.get("PORT", 5000))
@@ -315,7 +292,6 @@ def start_dummy_server():
         logger.error(f"❌ Failed to start HTTP server: {e}")
         raise
 
-# Main
 def main():
     app = setup_bot()
     logger.info("✅ Bot is running with anime, echo, and broadcast 👻")
