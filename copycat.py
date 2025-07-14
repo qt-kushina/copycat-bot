@@ -26,6 +26,12 @@ user_ids = set()
 group_ids = set()  
 broadcast_mode = {}  
 
+# Emoji list
+soft_emojis = ["🌸", "🌷", "💮", "🌼", "💖", "💫", "🎀", "🕊️", "💝", "🫶", "🍃", "✨", "🌙", "🍥", "💘", "🌺", "🌤️", "🧸", "💞", "🌿"]
+
+def get_random_emojis(count=20):
+    return "".join(random.choices(soft_emojis, k=count))
+
 # Welcome messages  
 welcome_messages = [  
     "Hello {mention} just wanted to share something with love 💖",  
@@ -118,7 +124,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.effective_chat.type in ["group", "supergroup"]:  
         group_ids.add(chat_id)  
 
-    loading_msg = await context.bot.send_message(chat_id=chat_id, text="🌸")  
+    emoji_msg = get_random_emojis(20)
+    loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)  
     await send_start_image(chat_id, user, context.bot, loading_msg=loading_msg)  
 
 # /ping  
@@ -181,6 +188,7 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")  
 
+# Handles incoming messages  
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):  
     user = update.effective_user  
     message = update.message  
@@ -200,10 +208,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Trigger word - now works in all chats  
     if "billu" in lowered:  
         reply_id = message.message_id if message.chat.type in ["group", "supergroup"] else None  
- 
+        emoji_msg = get_random_emojis(20)
         loading_msg = await context.bot.send_message(  
             chat_id=message.chat_id,  
-            text="🌸",  
+            text=emoji_msg,  
             reply_to_message_id=reply_id  
         )  
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)  
