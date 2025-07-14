@@ -119,19 +119,19 @@ async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_type = message.chat.type
     bot = context.bot
     emoji = get_random_reaction()
+    lowered = (message.text or "").lower()
+
+    should_react = False
 
     if chat_type == "private":
-        try:
-            await bot.set_message_reaction(
-                chat_id=message.chat.id,
-                message_id=message.message_id,
-                reaction=[ReactionTypeEmoji(emoji=emoji)]
-            )
-        except Exception as e:
-            logger.warning(f"React failed in private: {e}")
-        return
+        should_react = True
+    elif chat_type in ["group", "supergroup"]:
+        if "billu" in lowered:
+            should_react = True
+        elif message.reply_to_message and message.reply_to_message.from_user.id == bot.id:
+            should_react = True
 
-    if chat_type in ["group", "supergroup"] and message.reply_to_message and message.reply_to_message.from_user.id == bot.id:
+    if should_react:
         try:
             await bot.set_message_reaction(
                 chat_id=message.chat.id,
@@ -139,7 +139,7 @@ async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reaction=[ReactionTypeEmoji(emoji=emoji)]
             )
         except Exception as e:
-            logger.warning(f"React failed in group: {e}")
+            logger.warning(f"React failed: {e}")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await react_to_message(update, context)
