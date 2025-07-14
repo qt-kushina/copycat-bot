@@ -208,7 +208,6 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await react_to_message(update, context)
     user = update.effective_user
     message = update.message
     if not message:
@@ -220,7 +219,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lowered = text.lower()
 
     if "billu" in lowered:
-        await react_to_message(update, context)  # ✅ Properly indented
+        await react_to_message(update, context)  # ✅ React only once here
         reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
         emoji_msg = get_random_emojis()
         loading_msg = await context.bot.send_message(
@@ -232,6 +231,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if chat_type == "private":
+        await react_to_message(update, context)  # ✅ Only react in private
         try:
             await context.bot.copy_message(
                 chat_id=message.chat_id,
@@ -243,6 +243,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
+        await react_to_message(update, context)  # ✅ Only react if it's a reply to bot
         try:
             await context.bot.copy_message(
                 chat_id=message.chat_id,
