@@ -26,11 +26,17 @@ user_ids = set()
 group_ids = set()
 broadcast_mode = {}
 
-# Emoji list
+# Emoji list for caption messages
 soft_emojis = ["⛅", "🌤️", "❣️", "💖", "🌸", "💝", "💘", "💗", "💓", "💞", "❤️‍🔥", "🌹", "🌺", "🌼", "🌷", "💐", "🕊️", "🐱", "🐈", "💌"]
+
+# Emoji list for reactions
+reaction_emojis = ["👍", "❤️", "🔥", "👏", "😁", "😢", "🤔", "😮", "🎉", "💯", "👎"]
 
 def get_random_emojis(count=1):
     return random.choice(soft_emojis)
+
+def get_random_reaction():
+    return random.choice(reaction_emojis)
 
 # Welcome messages
 welcome_messages = [
@@ -120,7 +126,7 @@ async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     chat_type = message.chat.type
     bot = context.bot
-    emoji = get_random_emojis()
+    emoji = get_random_reaction()
 
     if chat_type == "private":
         try:
