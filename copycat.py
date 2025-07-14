@@ -220,15 +220,16 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     lowered = text.lower()
 
     if "billu" in lowered:
-        reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
-        emoji_msg = get_random_emojis()
-        loading_msg = await context.bot.send_message(
-            chat_id=message.chat_id,
-            text=emoji_msg,
-            reply_to_message_id=reply_id
-        )
-        await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
-        return
+    await react_to_message(update, context)
+    reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
+    emoji_msg = get_random_emojis()
+    loading_msg = await context.bot.send_message(
+        chat_id=message.chat_id,
+        text=emoji_msg,
+        reply_to_message_id=reply_id
+    )
+    await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
+    return
 
     if chat_type == "private":
         try:
