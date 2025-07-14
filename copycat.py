@@ -1,4 +1,4 @@
-import os
+import os  
 import asyncio  
 import logging  
 import random  
@@ -26,11 +26,11 @@ user_ids = set()
 group_ids = set()  
 broadcast_mode = {}  
 
-# Emoji list
-soft_emojis = ["🌸", "🌷", "💮", "🌼", "💖", "💫", "🎀", "🕊️", "💝", "🫶", "🍃", "✨", "🌙", "🍥", "💘", "🌺", "🌤️", "🧸", "💞", "🌿"]
+# Emoji list  
+soft_emojis = ["🌸", "🌷", "💮", "🌼", "💖", "💫", "🎀", "🕊️", "💝", "🫶", "🍃", "✨", "🌙", "🍥", "💘", "🌺", "🌤️", "🧸", "💞", "🌿"]  
 
-def get_random_emojis(count=20):
-    return "".join(random.choices(soft_emojis, k=count))
+def get_random_emojis(count=1):  
+    return random.choice(soft_emojis)  
 
 # Welcome messages  
 welcome_messages = [  
@@ -124,7 +124,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.effective_chat.type in ["group", "supergroup"]:  
         group_ids.add(chat_id)  
 
-    emoji_msg = get_random_emojis(20)
+    emoji_msg = get_random_emojis()  
     loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)  
     await send_start_image(chat_id, user, context.bot, loading_msg=loading_msg)  
 
@@ -196,7 +196,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not message:  
         return  
 
-    # Track user/group IDs for broadcast  
     if message.chat.type == "private":  
         user_ids.add(message.chat_id)  
     elif message.chat.type in ["group", "supergroup"]:  
@@ -205,10 +204,9 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = message.text or ""  
     lowered = text.lower()  
 
-    # Trigger word - now works in all chats  
     if "billu" in lowered:  
         reply_id = message.message_id if message.chat.type in ["group", "supergroup"] else None  
-        emoji_msg = get_random_emojis(20)
+        emoji_msg = get_random_emojis()  
         loading_msg = await context.bot.send_message(  
             chat_id=message.chat_id,  
             text=emoji_msg,  
@@ -217,7 +215,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)  
         return  
 
-    # Private: Echo all messages  
     if message.chat.type == "private":  
         try:  
             await context.bot.copy_message(  
@@ -229,7 +226,6 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning(f"Echo failed in private: {e}")  
         return  
 
-    # Group: Echo only replies to bot  
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:  
         try:  
             await context.bot.copy_message(  
@@ -271,7 +267,7 @@ class DummyHandler(BaseHTTPRequestHandler):
         self.end_headers()  
 
     def log_message(self, format, *args):  
-        pass  # Silence logs  
+        pass  
 
 # Start dummy server  
 def start_dummy_server():  
