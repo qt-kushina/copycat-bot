@@ -222,14 +222,15 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = update.message
     if not message:
         return
-    if message.chat.type == "private":
-        user_ids.add(message.chat_id)
-    elif message.chat.type in ["group", "supergroup"]:
-        group_ids.add(message.chat_id)
+
+    chat_type = message.chat.type
+    user_ids.add(message.chat_id) if chat_type == "private" else group_ids.add(message.chat_id)
     text = message.text or ""
     lowered = text.lower()
+
+    # Trigger keyword reaction in any chat
     if "billu" in lowered:
-        reply_id = message.message_id if message.chat.type in ["group", "supergroup"] else None
+        reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
         emoji_msg = get_random_emojis()
         loading_msg = await context.bot.send_message(
             chat_id=message.chat_id,
@@ -237,8 +238,11 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_to_message_id=reply_id
         )
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
+        await react_to_message(update, context)  # ✅ react after image
         return
-    if message.chat.type == "private":
+
+    # Echo in private
+    if chat_type == "private":
         try:
             await context.bot.copy_message(
                 chat_id=message.chat_id,
@@ -247,8 +251,10 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             logger.warning(f"Echo failed in private: {e}")
-        await react_to_message(update, context)
+        await react_to_message(update, context)  # ✅ react on all messages including commands
         return
+
+    # Echo in group only if replying to bot
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
         try:
             await context.bot.copy_message(
@@ -259,7 +265,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             logger.warning(f"Echo failed in group: {e}")
-    await react_to_message(update, context)
+        await react_to_message(update, context)  # ✅ react when replying to bot
 
 # Set bot commands
 async def set_commands(application):
