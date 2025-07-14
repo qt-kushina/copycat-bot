@@ -30,7 +30,7 @@ broadcast_mode = {}
 soft_emojis = ["⛅", "🌤️", "❣️", "💖", "🌸", "💝", "💘", "💗", "💓", "💞", "❤️‍🔥", "🌹", "🌺", "🌼", "🌷", "💐", "🕊️", "🐱", "🐈", "💌"]
 
 # Emoji list for reactions
-reaction_emojis = ["👍", "❤️", "🔥", "👏", "😁", "😢", "🤔", "😮", "🎉", "💯", "👎"]
+reaction_emojis = ["👍", "❤️", "🔥", "👏", "😁", "😢", "🤔", "❤️‍🔥", "🎉", "💯", "👎"]
 
 def get_random_emojis(count=1):
     return random.choice(soft_emojis)
@@ -165,6 +165,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
     await send_start_image(chat_id, user, context.bot, loading_msg=loading_msg)
 
+    await react_to_message(update, context)  # ✅ react to /start
+
 # /ping
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     start_time = time.time()
@@ -174,6 +176,8 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🏓 <a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms",
         disable_web_page_preview=True
     )
+
+    await react_to_message(update, context)  # ✅ react to /ping
 
 # /broadcast
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -238,7 +242,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_to_message_id=reply_id
         )
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
-        await react_to_message(update, context)  # ✅ react after image
+        await react_to_message(update, context)
         return
 
     # Echo in private
@@ -251,7 +255,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             logger.warning(f"Echo failed in private: {e}")
-        await react_to_message(update, context)  # ✅ react on all messages including commands
+        await react_to_message(update, context)
         return
 
     # Echo in group only if replying to bot
@@ -265,7 +269,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             logger.warning(f"Echo failed in group: {e}")
-        await react_to_message(update, context)  # ✅ react when replying to bot
+        await react_to_message(update, context)
 
 # Set bot commands
 async def set_commands(application):
