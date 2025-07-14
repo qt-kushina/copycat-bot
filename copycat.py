@@ -7,25 +7,25 @@ import aiohttp
 import telegram  
 import threading  
 from http.server import BaseHTTPRequestHandler, HTTPServer  
-  
+
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup  
 from telegram.ext import (  
     ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler,  
     filters, ContextTypes, Defaults  
 )  
-  
+
 # Load sensitive values from environment  
 BOT_TOKEN = os.environ.get("BOT_TOKEN")  
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))  
-  
+
 logging.basicConfig(level=logging.INFO)  
 logger = logging.getLogger(__name__)  
-  
+
 user_button_state = {}  
 user_ids = set()  
 group_ids = set()  
 broadcast_mode = {}  
-  
+
 # Welcome messages  
 welcome_messages = [  
     "Hello {mention} just wanted to share something with love 💖",  
@@ -59,7 +59,7 @@ welcome_messages = [
     "Your presence matters {mention} quietly and truly 🌈",  
     "May this bring a quiet breath to your heart {mention} 🌿"  
 ]  
-  
+
 # Fetch random anime image  
 async def get_random_anime_image():  
     url = "https://wallhaven.cc/api/v1/search?q=flower&ratios=16x9&sorting=random&categories=100&purity=100"  
@@ -72,7 +72,7 @@ async def get_random_anime_image():
             if not images:  
                 return None  
             return random.choice(images)["path"]  
-  
+
 # Send anime wallpaper  
 async def send_start_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):  
     image_url = await get_random_anime_image()  
@@ -82,13 +82,12 @@ async def send_start_image(chat_id, user, bot, loading_msg=None, reply_to_messag
         else:  
             await bot.send_message(chat_id=chat_id, text="⚠️ Failed to get anime image.")  
         return  
-  
+
     name = f"{user.first_name} {user.last_name or ''}".strip()  
     mention = f"<a href='tg://user?id={user.id}'>{name}</a>"  
     greeting = random.choice(welcome_messages).format(mention=mention)  
-  
+
     if loading_msg:  
-        # Edit the "🔎" message into a photo message with caption  
         await bot.edit_message_media(  
             chat_id=chat_id,  
             message_id=loading_msg.message_id,  
@@ -106,34 +105,34 @@ async def send_start_image(chat_id, user, bot, loading_msg=None, reply_to_messag
             reply_to_message_id=reply_to_message_id,  
             parse_mode="HTML"  
         )  
-  
+
 # /start command  
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):  
     user = update.effective_user  
     chat_id = update.effective_chat.id  
-  
+
     user_button_state[user.id] = {"updates": False, "group": False, "addme": False}  
-  
+
     if update.effective_chat.type == "private":  
         user_ids.add(chat_id)  
     elif update.effective_chat.type in ["group", "supergroup"]:  
         group_ids.add(chat_id)  
-  
-    loading_msg = await context.bot.send_message(chat_id=chat_id, text="🔎")  
+
+    loading_msg = await context.bot.send_message(chat_id=chat_id, text="🌸")  
     await send_start_image(chat_id, user, context.bot, loading_msg=loading_msg)  
-  
+
 # /ping  
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):  
     start_time = time.time()  
     msg = await update.message.reply_text("🛰️ Pinging...")  
-  
+
     latency = int((time.time() - start_time) * 1000)  
-  
+
     await msg.edit_text(  
         f"🏓 <a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms",  
         disable_web_page_preview=True  
     )  
-  
+
 # /broadcast  
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):  
     if update.effective_user.id != OWNER_ID:  
@@ -144,30 +143,30 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("❌ Cancel", callback_data="broadcast_cancel")]  
     ]  
     await update.message.reply_text("📢 Choose broadcast target:", reply_markup=InlineKeyboardMarkup(keyboard))  
-  
+
 # Handle broadcast buttons  
 async def broadcast_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):  
     query = update.callback_query  
     await query.answer()  
-  
+
     if query.data == "broadcast_cancel":  
         await query.edit_message_text("❌ Broadcast cancelled.")  
         return  
-  
+
     target = "users" if query.data == "broadcast_users" else "groups"  
     broadcast_mode[query.from_user.id] = target  
     await query.edit_message_text(f"✅ Send the message you want to broadcast to {target}.")  
-  
+
 # Broadcast content to users/groups  
 async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):  
     user_id = update.effective_user.id  
     if user_id not in broadcast_mode:  
         return  
-  
+
     target = broadcast_mode.pop(user_id)  
     ids = user_ids if target == "users" else group_ids  
     count = 0  
-  
+
     for cid in list(ids):  
         try:  
             await context.bot.copy_message(  
@@ -179,38 +178,37 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(0.05)  
         except Exception as e:  
             logger.warning(f"Broadcast to {cid} failed: {e}")  
-  
+
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")  
-  
+
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):  
     user = update.effective_user  
     message = update.message  
-  
+
     if not message:  
         return  
-  
+
     # Track user/group IDs for broadcast  
     if message.chat.type == "private":  
         user_ids.add(message.chat_id)  
     elif message.chat.type in ["group", "supergroup"]:  
         group_ids.add(message.chat_id)  
-  
+
     text = message.text or ""  
     lowered = text.lower()  
-  
+
     # Trigger word - now works in all chats  
     if "billu" in lowered:  
         reply_id = message.message_id if message.chat.type in ["group", "supergroup"] else None  
-  
-        # Send 🔎 first and edit it later with image+caption  
+ 
         loading_msg = await context.bot.send_message(  
             chat_id=message.chat_id,  
-            text="🔎",  
+            text="🌸",  
             reply_to_message_id=reply_id  
         )  
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)  
         return  
-  
+
     # Private: Echo all messages  
     if message.chat.type == "private":  
         try:  
@@ -222,7 +220,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:  
             logger.warning(f"Echo failed in private: {e}")  
         return  
-  
+
     # Group: Echo only replies to bot  
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:  
         try:  
@@ -234,13 +232,13 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )  
         except Exception as e:  
             logger.warning(f"Echo failed in group: {e}")  
-  
+
 # Set bot commands  
 async def set_commands(application):  
     await application.bot.set_my_commands([  
         ("start", "🎨 Get an image")  
     ])  
-  
+
 # Setup bot  
 def setup_bot():  
     app = ApplicationBuilder().token(BOT_TOKEN).defaults(Defaults(parse_mode="HTML")).build()  
@@ -252,21 +250,21 @@ def setup_bot():
     app.add_handler(MessageHandler(filters.ALL & filters.User(user_id=OWNER_ID), broadcast_content))  
     app.post_init = set_commands  
     return app  
-  
+
 # Dummy HTTP server  
 class DummyHandler(BaseHTTPRequestHandler):  
     def do_GET(self):  
         self.send_response(200)  
         self.end_headers()  
         self.wfile.write(b"Sakura bot is alive!")  
-  
+
     def do_HEAD(self):  
         self.send_response(200)  
         self.end_headers()  
-  
+
     def log_message(self, format, *args):  
         pass  # Silence logs  
-  
+
 # Start dummy server  
 def start_dummy_server():  
     logger.info("🌐 Starting HTTP health check server")  
@@ -278,13 +276,13 @@ def start_dummy_server():
     except Exception as e:  
         logger.error(f"❌ Failed to start HTTP server: {e}")  
         raise  
-  
+
 # Main  
 def main():  
     app = setup_bot()  
     logger.info("✅ Bot is running with anime, echo, and broadcast 👻")  
     app.run_polling()  
-  
+
 if __name__ == "__main__":  
     threading.Thread(target=start_dummy_server, daemon=True).start()  
     main()
