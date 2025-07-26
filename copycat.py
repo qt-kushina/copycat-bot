@@ -741,214 +741,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = user.id if user else None
         chat_id = message.chat_id
 
-        logger.info(f"Message from user {user_id} in {chat_type} chat")
-
-        # Track chat ID
-        track_chat_id(message.chat_id, chat_type)
-
-        text = message.text or ""
-        lowered = text.lower()
-
-        # Handle keyword trigger in any chat
-        if TRIGGER_KEYWORD in lowered:
-            logger.info(f"Keyword '{TRIGGER_KEYWORD}' triggered by user {user_id}")
-            await react_to_message(update, context)
-            reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
-            
-            # Show typing action before sending emoji message
-            await send_chat_action(context, message.chat_id, ChatAction.TYPING)
-            
-            try:
-                emoji_msg = get_random_emoji()
-                loading_msg = await context.bot.send_message(
-                    chat_id=message.chat_id,
-                    text=emoji_msg,
-                    reply_to_message_id=reply_id
-                )
-                
-                await send_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
-                logger.info("Keyword response completed")
-                
-            except Exception as e:
-                loggers['errors'].error(f"Error in keyword response: {str(e)[:50]}")
-            return
-
-        # Handle echo feature
-        echo_handled = await handle_echo(update, context)
-        if not echo_handled:
-            logger.debug("Message not handled by any feature")
-            
-    except Exception as e:
-        loggers['errors'].critical(f"Critical error in message handler: {str(e)[:50]}")
-
-
-async def set_bot_commands(application):
-    """Set bot commands in Telegram."""
-    try:
-        logger.info("Setting bot commands")
-        await application.bot.set_my_commands(BOT_COMMANDS)
-        logger.info("Bot commands set successfully")
-    except Exception as e:
-        loggers['errors'].error(f"Failed to set bot commands: {str(e)[:50]}")
-
-
-class BroadcastFilter(filters.MessageFilter):
-    """Custom filter for broadcast messages."""
-
-    def filter(self, message):
-        try:
-            if not message.from_user:
-                return False
-            user_id = message.from_user.id
-            is_in_broadcast_mode = user_id == OWNER_ID and user_id in broadcast_mode
-            return is_in_broadcast_mode
-        except Exception:
-            return False
-
-
-def setup_bot():
-    """Create and configure the bot application."""
-    try:
-        logger.info("Setting up bot application")
-        
-        if not BOT_TOKEN:
-            loggers['errors'].critical("BOT_TOKEN is not set!")
-            raise ValueError("BOT_TOKEN environment variable is required")
-            
-        app = ApplicationBuilder().token(BOT_TOKEN).defaults(Defaults(parse_mode="HTML")).build()
-        logger.info("Bot application created successfully")
-
-        logger.info("Setting up bot handlers")
-
-        # Add command handlers
-        app.add_handler(CommandHandler("start", start_command))
-        app.add_handler(CommandHandler("ping", ping_command))
-        app.add_handler(CommandHandler("broadcast", broadcast_command))
-        app.add_handler(CallbackQueryHandler(handle_broadcast_choice, pattern="^broadcast_"))
-        logger.info("Command handlers added")
-
-        # Add broadcast handler with custom filter
-        broadcast_filter = BroadcastFilter()
-        app.add_handler(MessageHandler(
-            filters.ALL & (~filters.COMMAND) & broadcast_filter, 
-            handle_broadcast_content
-        ))
-        logger.info("Broadcast handler added")
-
-        # Add general message handler for echo and keyword features
-        app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), handle_message))
-        logger.info("Message handler added")
-
-        app.post_init = set_bot_commands
-        logger.info("Bot handlers setup complete")
-        return app
-        
-    except Exception as e:
-        loggers['errors'].critical(f"Critical error setting up bot: {str(e)[:50]}")
-        raise
-
-
-class HealthCheckHandler(BaseHTTPRequestHandler):
-    """HTTP handler for health checks."""
-
-    def do_GET(self):
-        try:
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(STATUS_MESSAGES["server_alive"].encode())
-        except Exception as e:
-            loggers['errors'].error(f"Error in health check GET: {str(e)[:50]}")
-
-    def do_HEAD(self):
-        try:
-            self.send_response(200)
-            self.end_headers()
-        except Exception as e:
-            loggers['errors'].error(f"Error in health check HEAD: {str(e)[:50]}")
-
-    def log_message(self, format, *args):
-        """Suppress HTTP server logs."""
-        pass
-
-
-def start_health_server():
-    """Start HTTP server for health checks."""
-    try:
-        logger.info("Starting HTTP health check server")
-        port = int(os.environ.get("PORT", 5000))
-        
-        server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-        logger.info(f"HTTP server listening on 0.0.0.0:{port}")
-        server.serve_forever()
-        
-    except OSError as e:
-        loggers['errors'].error(f"Failed to bind to port {port}: {str(e)[:50]}")
-        raise
-    except Exception as e:
-        loggers['errors'].critical(f"Critical error starting HTTP server: {str(e)[:50]}")
-        raise
-
-
-def main():
-    """Main function to run the bot."""
-    try:
-        print("\n" + "="*60)
-        print("🌸 SAKURA BOT STARTING 🌸")
-        print("="*60)
-        
-        if not BOT_TOKEN:
-            loggers['errors'].critical("BOT_TOKEN environment variable is not set")
-            return
-
-        if OWNER_ID == 0:
-            logger.warning("OWNER_ID not set - broadcast functionality will be disabled")
-
-        logger.info(f"Bot Token: {'*' * (len(BOT_TOKEN) - 8) + BOT_TOKEN[-8:]}")
-        logger.info(f"Owner ID: {OWNER_ID}")
-        logger.info(f"Trigger Keyword: {TRIGGER_KEYWORD}")
-
-        app = setup_bot()
-        logger.info("Bot is running with anime, echo, and broadcast features 👻")
-
-        # Log initial stats
-        logger.info(f"Initial Stats - Users: {len(user_ids)}, Groups: {len(group_ids)}")
-        
-        print("="*60)
-        print("✅ Bot is now running! Press Ctrl+C to stop.")
-        print("="*60 + "\n")
-
-        app.run_polling()
-        
-    except KeyboardInterrupt:
-        print("\n" + "="*60)
-        logger.info("Bot stopped by user (Ctrl+C)")
-        print("👋 Goodbye!")
-        print("="*60)
-    except telegram.error.InvalidToken:
-        loggers['errors'].critical("Invalid bot token provided")
-    except telegram.error.NetworkError as e:
-        loggers['errors'].critical(f"Network error: {str(e)[:50]}")
-    except Exception as e:
-        loggers['errors'].critical(f"Bot crashed with unexpected error: {str(e)[:50]}")
-        raise
-
-
-if __name__ == "__main__":
-    try:
-        # Start HTTP server in background thread
-        server_thread = threading.Thread(target=start_health_server, daemon=True)
-        server_thread.start()
-        logger.info("HTTP server thread started")
-        
-        # Start main bot
-        main()
-        
-    except Exception as e:
-        loggers['errors'].critical(f"Critical startup error: {str(e)[:50]}")
-        exit(1)type = message.chat.type
-        user_id = user.id if user else None
-        chat_id = message.chat_id
-
         logger.info(f"📥 Message from user {user_id} in {chat_type} chat {chat_id}")
 
         # Track chat ID
@@ -1112,7 +904,9 @@ def start_health_server():
 def main():
     """Main function to run the bot."""
     try:
-        logger.info("🚀 Starting Sakura Bot")
+        print("\n" + "="*60)
+        print("🌸 SAKURA BOT STARTING 🌸")
+        print("="*60)
         
         if not BOT_TOKEN:
             logger.critical("💥 BOT_TOKEN environment variable is not set")
@@ -1130,11 +924,18 @@ def main():
 
         # Log initial stats
         logger.info(f"📊 Initial Stats - Users: {len(user_ids)}, Groups: {len(group_ids)}")
+        
+        print("="*60)
+        print("✅ Bot is now running! Press Ctrl+C to stop.")
+        print("="*60 + "\n")
 
         app.run_polling()
         
     except KeyboardInterrupt:
+        print("\n" + "="*60)
         logger.info("👋 Bot stopped by user (Ctrl+C)")
+        print("👋 Goodbye!")
+        print("="*60)
     except telegram.error.InvalidToken:
         logger.critical("💥 Invalid bot token provided")
     except telegram.error.NetworkError as e:
