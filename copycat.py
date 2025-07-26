@@ -269,19 +269,22 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def broadcastchoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle broadcast target selection."""
     query = update.callback_query
-    await query.answer("✅ Selection confirmed!", show_alert=True)
-
+    
     if query.data == "broadcast_cancel":
+        await query.answer("Broadcast cancelled!", show_alert=True)
         await query.edit_message_text("❌ Broadcast cancelled.")
         return
 
     if query.data == "broadcast_user":
+        await query.answer("Users selected ✅")
         target = "users"
         await query.edit_message_text("✅ Send the message you want to broadcast to users.")
     elif query.data == "broadcast_group":
+        await query.answer("Groups selected ✅")
         target = "groups"
         await query.edit_message_text("✅ Send the message you want to broadcast to groups.")
     elif query.data == "broadcast_all":
+        await query.answer("All users and groups selected ✅")
         target = "all"
         await query.edit_message_text("✅ Send the message you want to broadcast to all users and groups.")
 
