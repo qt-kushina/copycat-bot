@@ -36,6 +36,8 @@ SOFT_EMOJIS = [
 
 REACTION_EMOJIS = ["👍", "❤️", "🔥", "😁", "🆒"]
 
+TRIGGER_KEYWORD = "billu"  # Group triggering keyword
+
 WELCOME_MESSAGES = [
     "Hello {mention} just wanted to share something with love 💖",
     "This is sent with care {mention} nothing more nothing less 💌",
@@ -88,7 +90,7 @@ def create_user_mention(user):
     return f"<a href='tg://user?id={user.id}'>{name}</a>"
 
 
-async def fetch_random_image():
+async def get_random_anime_image():
     """Fetch a random image from Wallhaven API."""
     try:
         async with aiohttp.ClientSession() as session:
@@ -110,9 +112,9 @@ async def fetch_random_image():
         return None
 
 
-async def send_welcome_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
+async def send_start_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
     """Send a welcome image with a personalized message."""
-    image_url = await fetch_random_image()
+    image_url = await get_random_anime_image()
     
     if not image_url:
         error_msg = "⚠️ Failed to get anime image."
@@ -148,39 +150,38 @@ async def send_welcome_image(chat_id, user, bot, loading_msg=None, reply_to_mess
         logger.error(f"Error sending welcome image: {e}")
 
 
-async def add_reaction_to_message(message, bot):
-    """Add a random reaction to a message."""
-    try:
-        emoji = get_random_reaction()
-        await bot.set_message_reaction(
-            chat_id=message.chat.id,
-            message_id=message.message_id,
-            reaction=[ReactionTypeEmoji(emoji=emoji)]
-        )
-    except Exception as e:
-        logger.warning(f"Failed to add reaction: {e}")
+async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """React to a message based on chat type and content."""
+    message = update.message
+    if not message:
+        return
 
-
-def should_react_to_message(message, bot_id):
-    """Determine if the bot should react to a message."""
-    if not message or not message.text:
-        return False
-    
     chat_type = message.chat.type
-    text_lower = message.text.lower()
-    
+    bot = context.bot
+    emoji = get_random_reaction()
+    lowered = (message.text or "").lower()
+
+    should_react = False
+
     # Always react in private chats
     if chat_type == "private":
-        return True
-    
-    # In groups, react if message contains "billu" or is a reply to bot
-    if chat_type in ["group", "supergroup"]:
-        if "billu" in text_lower:
-            return True
-        if message.reply_to_message and message.reply_to_message.from_user.id == bot_id:
-            return True
-    
-    return False
+        should_react = True
+    # In groups, react if keyword is mentioned or replying to bot
+    elif chat_type in ["group", "supergroup"]:
+        if TRIGGER_KEYWORD in lowered:
+            should_react = True
+        elif message.reply_to_message and message.reply_to_message.from_user.id == bot.id:
+            should_react = True
+
+    if should_react:
+        try:
+            await bot.set_message_reaction(
+                chat_id=message.chat.id,
+                message_id=message.message_id,
+                reaction=[ReactionTypeEmoji(emoji=emoji)]
+            )
+        except Exception as e:
+            logger.warning(f"React failed: {e}")
 
 
 def track_chat_id(chat_id, chat_type):
@@ -191,36 +192,30 @@ def track_chat_id(chat_id, chat_type):
         group_ids.add(chat_id)
 
 
-async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
+    await react_to_message(update, context)
     user = update.effective_user
     chat_id = update.effective_chat.id
-    chat_type = update.effective_chat.type
 
     # Initialize user state
     user_button_state[user.id] = {"updates": False, "group": False, "addme": False}
-    
+
     # Track chat ID
-    track_chat_id(chat_id, chat_type)
-    
-    # React to the command
-    if should_react_to_message(update.message, context.bot.id):
-        await add_reaction_to_message(update.message, context.bot)
+    track_chat_id(chat_id, update.effective_chat.type)
 
     # Send loading message and then welcome image
-    loading_msg = await context.bot.send_message(chat_id=chat_id, text=get_random_emoji())
-    await send_welcome_image(chat_id, user, context.bot, loading_msg=loading_msg)
+    emoji_msg = get_random_emoji()
+    loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
+    await send_start_image(chat_id, user, context.bot, loading_msg=loading_msg)
 
 
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /ping command."""
-    if should_react_to_message(update.message, context.bot.id):
-        await add_reaction_to_message(update.message, context.bot)
-    
+    await react_to_message(update, context)
     start_time = time.time()
     msg = await update.message.reply_text("🛰️ Pinging...")
     latency = int((time.time() - start_time) * 1000)
-    
     await msg.edit_text(
         f"🏓 <a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms",
         parse_mode="HTML",
@@ -228,7 +223,7 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 
-async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /broadcast command (owner only)."""
     if update.effective_user.id != OWNER_ID:
         return
@@ -238,14 +233,10 @@ async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("👥 To Groups", callback_data="broadcast_groups")],
         [InlineKeyboardButton("❌ Cancel", callback_data="broadcast_cancel")]
     ]
-    
-    await update.message.reply_text(
-        "📢 Choose broadcast target:",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await update.message.reply_text("📢 Choose broadcast target:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 
-async def handle_broadcast_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def broadcast_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle broadcast target selection."""
     query = update.callback_query
     await query.answer()
@@ -256,68 +247,65 @@ async def handle_broadcast_choice(update: Update, context: ContextTypes.DEFAULT_
     
     target = "users" if query.data == "broadcast_users" else "groups"
     broadcast_mode[query.from_user.id] = target
-    
     await query.edit_message_text(f"✅ Send the message you want to broadcast to {target}.")
 
 
-async def handle_broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle broadcast message content."""
     user_id = update.effective_user.id
-    
     if user_id not in broadcast_mode:
         return
     
     target = broadcast_mode.pop(user_id)
-    target_ids = user_ids if target == "users" else group_ids
+    ids = user_ids if target == "users" else group_ids
+    count = 0
     
-    success_count = 0
-    
-    for chat_id in list(target_ids):
+    for cid in list(ids):
         try:
             await context.bot.copy_message(
-                chat_id=chat_id,
+                chat_id=cid,
                 from_chat_id=update.message.chat_id,
                 message_id=update.message.message_id
             )
-            success_count += 1
-            await asyncio.sleep(0.05)  # Rate limiting
+            count += 1
+            await asyncio.sleep(0.05)
         except Exception as e:
-            logger.warning(f"Broadcast to {chat_id} failed: {e}")
+            logger.warning(f"Broadcast to {cid} failed: {e}")
+    
+    await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
-    await update.message.reply_text(f"📢 Broadcast sent to {success_count} {target}.")
 
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle all incoming messages."""
+async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle all incoming messages - includes echo feature and keyword triggering."""
+    user = update.effective_user
     message = update.message
     if not message:
         return
 
-    user = update.effective_user
     chat_type = message.chat.type
-    text_lower = (message.text or "").lower()
     
     # Track chat ID
     track_chat_id(message.chat_id, chat_type)
     
-    # Handle "billu" mentions
-    if "billu" in text_lower:
-        await add_reaction_to_message(message, context.bot)
-        
+    text = message.text or ""
+    lowered = text.lower()
+
+    # Handle keyword trigger in any chat
+    if TRIGGER_KEYWORD in lowered:
+        await react_to_message(update, context)
         reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
+        emoji_msg = get_random_emoji()
         loading_msg = await context.bot.send_message(
             chat_id=message.chat_id,
-            text=get_random_emoji(),
+            text=emoji_msg,
             reply_to_message_id=reply_id
         )
-        await send_welcome_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
+        await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
         return
 
-    # Handle private messages
+    # Echo feature for private chats
     if chat_type == "private":
-        if should_react_to_message(message, context.bot.id):
-            await add_reaction_to_message(message, context.bot)
-        
+        await react_to_message(update, context)
         try:
             await context.bot.copy_message(
                 chat_id=message.chat_id,
@@ -325,15 +313,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 message_id=message.message_id
             )
         except Exception as e:
-            logger.warning(f"Echo failed in private chat: {e}")
+            logger.warning(f"Echo failed in private: {e}")
         return
 
-    # Handle replies to bot in groups
-    if (message.reply_to_message and 
-        message.reply_to_message.from_user.id == context.bot.id):
-        
-        await add_reaction_to_message(message, context.bot)
-        
+    # Echo feature for group replies to bot
+    if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
+        await react_to_message(update, context)
         try:
             await context.bot.copy_message(
                 chat_id=message.chat_id,
@@ -345,7 +330,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.warning(f"Echo failed in group: {e}")
 
 
-async def set_bot_commands(application):
+async def set_commands(application):
     """Set bot commands in Telegram."""
     await application.bot.set_my_commands([
         ("start", "🎨 Get an image"),
@@ -353,35 +338,29 @@ async def set_bot_commands(application):
     ])
 
 
-def create_bot_application():
+def setup_bot():
     """Create and configure the bot application."""
     app = ApplicationBuilder().token(BOT_TOKEN).defaults(Defaults(parse_mode="HTML")).build()
     
-    # Add handlers
-    app.add_handler(CommandHandler("start", start_command))
+    # Add handlers in correct order
+    app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ping", ping_command))
-    app.add_handler(CommandHandler("broadcast", broadcast_command))
-    app.add_handler(CallbackQueryHandler(handle_broadcast_choice, pattern="^broadcast_"))
+    app.add_handler(CommandHandler("broadcast", broadcast))
+    app.add_handler(CallbackQueryHandler(broadcast_choice, pattern="^broadcast_"))
     
-    # Message handlers
-    app.add_handler(MessageHandler(
-        filters.ALL & (~filters.COMMAND) & filters.User(user_id=OWNER_ID), 
-        handle_broadcast_content
-    ))
-    app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), handle_message))
+    # Message handlers - broadcast handler must come before general message handler
+    app.add_handler(MessageHandler(filters.ALL & filters.User(user_id=OWNER_ID), broadcast_content))
+    app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), message_handler))
     
-    # Set post-init hook
-    app.post_init = set_bot_commands
-    
+    app.post_init = set_commands
     return app
 
 
-class HealthCheckHandler(BaseHTTPRequestHandler):
+class DummyHandler(BaseHTTPRequestHandler):
     """HTTP handler for health checks."""
     
     def do_GET(self):
         self.send_response(200)
-        self.send_header('Content-type', 'text/plain')
         self.end_headers()
         self.wfile.write(b"Sakura bot is alive!")
 
@@ -394,16 +373,16 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         pass
 
 
-def start_health_check_server():
+def start_dummy_server():
     """Start HTTP server for health checks."""
+    logger.info("🌐 Starting HTTP health check server")
     port = int(os.environ.get("PORT", 5000))
-    
     try:
-        server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
-        logger.info(f"✅ Health check server started on port {port}")
+        server = HTTPServer(("0.0.0.0", port), DummyHandler)
+        logger.info(f"✅ HTTP server listening on 0.0.0.0:{port}")
         server.serve_forever()
     except Exception as e:
-        logger.error(f"❌ Failed to start health check server: {e}")
+        logger.error(f"❌ Failed to start HTTP server: {e}")
         raise
 
 
@@ -413,12 +392,8 @@ def main():
         logger.error("❌ BOT_TOKEN environment variable is not set")
         return
     
-    # Start health check server in background
-    threading.Thread(target=start_health_check_server, daemon=True).start()
-    
-    # Create and run bot
-    app = create_bot_application()
-    logger.info("✅ Bot is running with anime, echo, and broadcast features 👻")
+    app = setup_bot()
+    logger.info("✅ Bot is running with anime, echo, and broadcast 👻")
     
     try:
         app.run_polling()
@@ -430,4 +405,5 @@ def main():
 
 
 if __name__ == "__main__":
+    threading.Thread(target=start_dummy_server, daemon=True).start()
     main()
