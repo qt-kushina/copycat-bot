@@ -253,6 +253,8 @@ async def broadcast_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle broadcast message content."""
     user_id = update.effective_user.id
+    
+    # Only handle if user is in broadcast mode
     if user_id not in broadcast_mode:
         return
     
@@ -354,14 +356,24 @@ def setup_bot():
     """Create and configure the bot application."""
     app = ApplicationBuilder().token(BOT_TOKEN).defaults(Defaults(parse_mode="HTML")).build()
     
-    # Add handlers in correct order
+    # Add command handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ping", ping_command))
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CallbackQueryHandler(broadcast_choice, pattern="^broadcast_"))
     
-    # Message handlers - broadcast handler must come before general message handler
-    app.add_handler(MessageHandler(filters.ALL & filters.User(user_id=OWNER_ID), broadcast_content))
+    # Add broadcast handler with specific condition to avoid conflicts
+    def broadcast_filter(update):
+        """Filter for broadcast content - only when user is in broadcast mode."""
+        user_id = update.effective_user.id if update.effective_user else None
+        return user_id == OWNER_ID and user_id in broadcast_mode
+    
+    app.add_handler(MessageHandler(
+        filters.ALL & (~filters.COMMAND) & filters.UpdateType.MESSAGE & broadcast_filter, 
+        broadcast_content
+    ))
+    
+    # Add general message handler for echo and keyword features
     app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), message_handler))
     
     app.post_init = set_commands
