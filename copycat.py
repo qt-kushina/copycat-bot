@@ -275,6 +275,41 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
 
+async def handle_echo_feature(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle echo feature for private chats and group replies to bot."""
+    message = update.message
+    chat_type = message.chat.type
+    
+    # Echo feature for private chats
+    if chat_type == "private":
+        await react_to_message(update, context)
+        try:
+            await context.bot.copy_message(
+                chat_id=message.chat_id,
+                from_chat_id=message.chat_id,
+                message_id=message.message_id
+            )
+        except Exception as e:
+            logger.warning(f"Echo failed in private: {e}")
+        return True
+
+    # Echo feature for group replies to bot
+    if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
+        await react_to_message(update, context)
+        try:
+            await context.bot.copy_message(
+                chat_id=message.chat_id,
+                from_chat_id=message.chat_id,
+                message_id=message.message_id,
+                reply_to_message_id=message.message_id
+            )
+        except Exception as e:
+            logger.warning(f"Echo failed in group: {e}")
+        return True
+    
+    return False
+
+
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle all incoming messages - includes echo feature and keyword triggering."""
     user = update.effective_user
@@ -303,31 +338,8 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
         return
 
-    # Echo feature for private chats
-    if chat_type == "private":
-        await react_to_message(update, context)
-        try:
-            await context.bot.copy_message(
-                chat_id=message.chat_id,
-                from_chat_id=message.chat_id,
-                message_id=message.message_id
-            )
-        except Exception as e:
-            logger.warning(f"Echo failed in private: {e}")
-        return
-
-    # Echo feature for group replies to bot
-    if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
-        await react_to_message(update, context)
-        try:
-            await context.bot.copy_message(
-                chat_id=message.chat_id,
-                from_chat_id=message.chat_id,
-                message_id=message.message_id,
-                reply_to_message_id=message.message_id
-            )
-        except Exception as e:
-            logger.warning(f"Echo failed in group: {e}")
+    # Handle echo feature
+    await handle_echo_feature(update, context)
 
 
 async def set_commands(application):
