@@ -19,8 +19,14 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 
 # Logging setup
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+# Enable debug logging for development (comment out for production)
+# logging.getLogger().setLevel(logging.DEBUG)
 
 # Bot state storage
 user_button_state = {}
@@ -254,13 +260,18 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle broadcast message content."""
     user_id = update.effective_user.id
     
+    logger.info(f"📢 Processing broadcast from user {user_id}")
+    
     # Only handle if user is in broadcast mode
     if user_id not in broadcast_mode:
+        logger.warning(f"❌ User {user_id} not in broadcast mode")
         return
     
     target = broadcast_mode.pop(user_id)
     ids = user_ids if target == "users" else group_ids
     count = 0
+    
+    logger.info(f"📡 Broadcasting to {len(ids)} {target}")
     
     for cid in list(ids):
         try:
@@ -272,8 +283,9 @@ async def broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
             count += 1
             await asyncio.sleep(0.05)
         except Exception as e:
-            logger.warning(f"Broadcast to {cid} failed: {e}")
+            logger.warning(f"❌ Broadcast to {cid} failed: {e}")
     
+    logger.info(f"✅ Broadcast completed: {count}/{len(ids)} successful")
     await update.message.reply_text(f"📢 Broadcast sent to {count} {target}.")
 
 
@@ -281,9 +293,13 @@ async def handle_echo_feature(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Handle echo feature for private chats and group replies to bot."""
     message = update.message
     chat_type = message.chat.type
+    user_id = message.from_user.id if message.from_user else None
+    
+    logger.debug(f"Echo check: chat_type={chat_type}, user_id={user_id}")
     
     # Echo feature for private chats
     if chat_type == "private":
+        logger.info(f"🔄 Echo in private chat for user {user_id}")
         await react_to_message(update, context)
         try:
             await context.bot.copy_message(
@@ -291,12 +307,14 @@ async def handle_echo_feature(update: Update, context: ContextTypes.DEFAULT_TYPE
                 from_chat_id=message.chat_id,
                 message_id=message.message_id
             )
+            logger.debug("✅ Private echo successful")
         except Exception as e:
-            logger.warning(f"Echo failed in private: {e}")
+            logger.warning(f"❌ Echo failed in private: {e}")
         return True
 
     # Echo feature for group replies to bot
     if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
+        logger.info(f"🔄 Echo in group for reply to bot from user {user_id}")
         await react_to_message(update, context)
         try:
             await context.bot.copy_message(
@@ -305,10 +323,12 @@ async def handle_echo_feature(update: Update, context: ContextTypes.DEFAULT_TYPE
                 message_id=message.message_id,
                 reply_to_message_id=message.message_id
             )
+            logger.debug("✅ Group echo successful")
         except Exception as e:
-            logger.warning(f"Echo failed in group: {e}")
+            logger.warning(f"❌ Echo failed in group: {e}")
         return True
     
+    logger.debug("❌ No echo conditions met")
     return False
 
 
@@ -317,18 +337,26 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     message = update.message
     if not message:
+        logger.debug("❌ No message in update")
         return
 
     chat_type = message.chat.type
+    user_id = user.id if user else None
+    chat_id = message.chat_id
+    
+    logger.info(f"📥 Message from user {user_id} in {chat_type} chat {chat_id}")
     
     # Track chat ID
     track_chat_id(message.chat_id, chat_type)
     
     text = message.text or ""
     lowered = text.lower()
+    
+    logger.debug(f"Message text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
 
     # Handle keyword trigger in any chat
     if TRIGGER_KEYWORD in lowered:
+        logger.info(f"🎯 Keyword '{TRIGGER_KEYWORD}' triggered by user {user_id}")
         await react_to_message(update, context)
         reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
         emoji_msg = get_random_emoji()
@@ -338,10 +366,15 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_to_message_id=reply_id
         )
         await send_start_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
+        logger.info("✅ Keyword response sent")
         return
 
     # Handle echo feature
-    await handle_echo_feature(update, context)
+    echo_handled = await handle_echo_feature(update, context)
+    if echo_handled:
+        logger.debug("✅ Message handled by echo feature")
+    else:
+        logger.debug("ℹ️ Message not handled by any feature")
 
 
 async def set_commands(application):
@@ -352,9 +385,23 @@ async def set_commands(application):
     ])
 
 
+class BroadcastFilter(filters.MessageFilter):
+    """Custom filter for broadcast messages."""
+    
+    def filter(self, message):
+        if not message.from_user:
+            return False
+        user_id = message.from_user.id
+        is_in_broadcast_mode = user_id == OWNER_ID and user_id in broadcast_mode
+        logger.debug(f"Broadcast filter check: user_id={user_id}, owner_id={OWNER_ID}, in_broadcast_mode={user_id in broadcast_mode}, result={is_in_broadcast_mode}")
+        return is_in_broadcast_mode
+
+
 def setup_bot():
     """Create and configure the bot application."""
     app = ApplicationBuilder().token(BOT_TOKEN).defaults(Defaults(parse_mode="HTML")).build()
+    
+    logger.info("🤖 Setting up bot handlers...")
     
     # Add command handlers
     app.add_handler(CommandHandler("start", start))
@@ -362,14 +409,10 @@ def setup_bot():
     app.add_handler(CommandHandler("broadcast", broadcast))
     app.add_handler(CallbackQueryHandler(broadcast_choice, pattern="^broadcast_"))
     
-    # Add broadcast handler with specific condition to avoid conflicts
-    def broadcast_filter(update):
-        """Filter for broadcast content - only when user is in broadcast mode."""
-        user_id = update.effective_user.id if update.effective_user else None
-        return user_id == OWNER_ID and user_id in broadcast_mode
-    
+    # Add broadcast handler with custom filter
+    broadcast_filter = BroadcastFilter()
     app.add_handler(MessageHandler(
-        filters.ALL & (~filters.COMMAND) & filters.UpdateType.MESSAGE & broadcast_filter, 
+        filters.ALL & (~filters.COMMAND) & broadcast_filter, 
         broadcast_content
     ))
     
@@ -377,6 +420,7 @@ def setup_bot():
     app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), message_handler))
     
     app.post_init = set_commands
+    logger.info("✅ Bot handlers setup complete")
     return app
 
 
