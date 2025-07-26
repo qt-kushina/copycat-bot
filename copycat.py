@@ -18,40 +18,10 @@ from telegram.ext import (
 # Configuration
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
+TRIGGER_KEYWORD = "billu"
+WALLHAVEN_API_URL = "https://wallhaven.cc/api/v1/search?q=flower&ratios=16x9&sorting=random&categories=100&purity=100"
 
-# Logging setup
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Create separate loggers for different components
-reaction_logger = logging.getLogger('reactions')
-echo_logger = logging.getLogger('echo')
-broadcast_logger = logging.getLogger('broadcast')
-image_logger = logging.getLogger('image')
-api_logger = logging.getLogger('api')
-
-# Enable debug logging for development (comment out for production)
-# logging.getLogger().setLevel(logging.DEBUG)
-
-# Bot state storage
-user_button_state = {}
-user_ids = set()
-group_ids = set()
-broadcast_mode = {}
-
-# Constants
-SOFT_EMOJIS = [
-    "⛅", "🌤️", "❣️", "💖", "🌸", "💝", "💘", "💗", "💓", "💞", 
-    "❤️‍🔥", "🌹", "🌺", "🌼", "🌷", "💐", "🕊️", "🐱", "🐈", "💌"
-]
-
-REACTION_EMOJIS = ["👍", "❤️", "🔥", "😁", "🆒"]
-
-TRIGGER_KEYWORD = "billu"  # Group triggering keyword
-
+# Welcome Messages Dictionary
 WELCOME_MESSAGES = [
     "Hello {mention} just wanted to share something with love 💖",
     "This is sent with care {mention} nothing more nothing less 💌",
@@ -85,10 +55,91 @@ WELCOME_MESSAGES = [
     "May this bring a quiet breath to your heart {mention} 🌿"
 ]
 
-WALLHAVEN_API_URL = "https://wallhaven.cc/api/v1/search?q=flower&ratios=16x9&sorting=random&categories=100&purity=100"
+# Emoji Collections
+SOFT_EMOJIS = [
+    "⛅", "🌤️", "❣️", "💖", "🌸", "💝", "💘", "💗", "💓", "💞", 
+    "❤️‍🔥", "🌹", "🌺", "🌼", "🌷", "💐", "🕊️", "🐱", "🐈", "💌"
+]
+
+REACTION_EMOJIS = [
+    "👍", "❤️", "🔥", "😁", "🆒"
+]
+
+# Error Messages
+ERROR_MESSAGES = {
+    "image_fetch_failed": "⚠️ Failed to get anime image.",
+    "broadcast_failed": "⚠️ Broadcast failed. Please try again.",
+    "ping_failed": "⚠️ Ping failed. Please try again.",
+    "general_error": "⚠️ Something went wrong. Please try again."
+}
+
+# Status Messages
+STATUS_MESSAGES = {
+    "broadcast_cancelled": "❌ Broadcast cancelled.",
+    "pinging": "🛰️ Pinging...",
+    "server_alive": "Sakura bot is alive!"
+}
+
+# Chat Action Mapping
+MESSAGE_TYPE_ACTIONS = {
+    'photo': ChatAction.UPLOAD_PHOTO,
+    'video': ChatAction.UPLOAD_VIDEO,
+    'document': ChatAction.UPLOAD_DOCUMENT,
+    'audio': ChatAction.UPLOAD_AUDIO,
+    'voice': ChatAction.UPLOAD_VOICE,
+    'video_note': ChatAction.UPLOAD_VIDEO_NOTE,
+    'sticker': ChatAction.CHOOSE_STICKER,
+    'location': ChatAction.FIND_LOCATION,
+    'text': ChatAction.TYPING
+}
+
+# Broadcast Target Mapping
+BROADCAST_TARGETS = {
+    "broadcast_user": {
+        "target": "users",
+        "answer": "Users selected ✅",
+        "message": "✅ Send the message you want to broadcast to users."
+    },
+    "broadcast_group": {
+        "target": "groups", 
+        "answer": "Groups selected ✅",
+        "message": "✅ Send the message you want to broadcast to groups."
+    },
+    "broadcast_all": {
+        "target": "all",
+        "answer": "All users and groups selected ✅", 
+        "message": "✅ Send the message you want to broadcast to all users and groups."
+    }
+}
+
+# Command Descriptions
+BOT_COMMANDS = [
+    ("start", "🎨 Get an image"),
+    ("ping", "🏓 Check bot latency")
+]
+
+# Logging setup
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Create separate loggers for different components
+reaction_logger = logging.getLogger('reactions')
+echo_logger = logging.getLogger('echo')
+broadcast_logger = logging.getLogger('broadcast')
+image_logger = logging.getLogger('image')
+api_logger = logging.getLogger('api')
+
+# Bot state storage
+user_button_state = {}
+user_ids = set()
+group_ids = set()
+broadcast_mode = {}
 
 
-async def sendchataction(context, chat_id, action):
+async def send_chat_action(context, chat_id, action):
     """Send chat action without delay."""
     try:
         logger.debug(f"🎭 Sending chat action '{action}' to chat {chat_id}")
@@ -104,7 +155,7 @@ async def sendchataction(context, chat_id, action):
         logger.error(f"❌ Unexpected error sending chat action '{action}' to chat {chat_id}: {e}")
 
 
-def randomemoji():
+def get_random_emoji():
     """Get a random soft emoji."""
     try:
         emoji = random.choice(SOFT_EMOJIS)
@@ -115,7 +166,7 @@ def randomemoji():
         return "💖"  # fallback emoji
 
 
-def randomreaction():
+def get_random_reaction():
     """Get a random reaction emoji."""
     try:
         reaction = random.choice(REACTION_EMOJIS)
@@ -126,56 +177,11 @@ def randomreaction():
         return "👍"  # fallback reaction
 
 
-def usermention(user):
+def create_user_mention(user):
     """Create a formatted mention string for a user."""
     try:
         if not user:
-            logger.warning("⚠️ User object is async def broadcastcontent(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle broadcast message content."""
-    try:
-        user_id = update.effective_user.id
-        broadcast_logger.info(f"📡 Processing broadcast content from user {user_id}")
-
-        # Only handle if user is in broadcast mode
-        if user_id not in broadcast_mode:
-            broadcast_logger.warning(f"❌ User {user_id} not in broadcast mode")
-            return
-
-        target = broadcast_mode.pop(user_id)
-        message = update.message
-        
-        if not message:
-            broadcast_logger.error("❌ No message found in broadcast content")
-            return
-            
-        broadcast_logger.info(f"📤 Broadcasting to target: {target}")
-        
-        # Show different chat actions based on message type
-        action_map = {
-            'photo': ChatAction.UPLOAD_PHOTO,
-            'video': ChatAction.UPLOAD_VIDEO,
-            'document': ChatAction.UPLOAD_DOCUMENT,
-            'audio': ChatAction.UPLOAD_AUDIO,
-            'voice': ChatAction.UPLOAD_VOICE,
-            'video_note': ChatAction.UPLOAD_VIDEO_NOTE,
-            'sticker': ChatAction.CHOOSE_STICKER,
-            'location': ChatAction.FIND_LOCATION
-        }
-        
-        # Determine message type and action
-        message_type = "text"
-        for msg_type in action_map:
-            if getattr(message, msg_type, None):
-                message_type = msg_type
-                break
-                
-        chat_action = action_map.get(message_type, ChatAction.TYPING)
-        broadcast_logger.debug(f"🎭 Detected message type: {message_type}, using action: {chat_action}")
-        
-        await sendchataction(context, message.chat_id, chat_action)
-        
-        # Determine target IDs based on selection
-        if target == ", cannot create mention")
+            logger.warning("⚠️ User object is None, cannot create mention")
             return "Unknown User"
         
         name = f"{user.first_name or ''} {user.last_name or ''}".strip()
@@ -191,7 +197,7 @@ def usermention(user):
         return "Unknown User"
 
 
-async def fetchimage():
+async def fetch_image():
     """Fetch a random image from Wallhaven API."""
     try:
         api_logger.info("🌐 Fetching image from Wallhaven API")
@@ -222,7 +228,17 @@ async def fetchimage():
     return None
 
 
-async def sendimage(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
+def get_message_type_and_action(message):
+    """Determine message type and corresponding chat action."""
+    for msg_type, action in MESSAGE_TYPE_ACTIONS.items():
+        if msg_type == 'text':
+            continue
+        if getattr(message, msg_type, None):
+            return msg_type, action
+    return 'text', MESSAGE_TYPE_ACTIONS['text']
+
+
+async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
     """Send a welcome image with a personalized message."""
     try:
         image_logger.info(f"📸 Starting image send process for chat {chat_id}, user {user.id if user else 'None'}")
@@ -234,10 +250,10 @@ async def sendimage(chat_id, user, bot, loading_msg=None, reply_to_message_id=No
         except Exception as e:
             image_logger.warning(f"⚠️ Failed to send upload photo action to chat {chat_id}: {e}")
         
-        image_url = await fetchimage()
+        image_url = await fetch_image()
 
         if not image_url:
-            error_msg = "⚠️ Failed to get anime image."
+            error_msg = ERROR_MESSAGES["image_fetch_failed"]
             image_logger.error(f"❌ No image URL available for chat {chat_id}")
             
             try:
@@ -251,7 +267,7 @@ async def sendimage(chat_id, user, bot, loading_msg=None, reply_to_message_id=No
                 image_logger.error(f"❌ Failed to send error message to chat {chat_id}: {e}")
             return
 
-        mention = usermention(user)
+        mention = create_user_mention(user)
         greeting = random.choice(WELCOME_MESSAGES).format(mention=mention)
         image_logger.debug(f"📝 Generated greeting for user {user.id if user else 'None'}: {greeting[:50]}...")
 
@@ -280,7 +296,7 @@ async def sendimage(chat_id, user, bot, loading_msg=None, reply_to_message_id=No
             image_logger.error(f"❌ Bad request sending image to chat {chat_id}: {e}")
             # Try sending text fallback
             try:
-                fallback_msg = f"{greeting}\n\n⚠️ Image failed to load."
+                fallback_msg = f"{greeting}\n\n{ERROR_MESSAGES['image_fetch_failed']}"
                 if loading_msg:
                     await loading_msg.edit_text(fallback_msg, parse_mode="HTML")
                 else:
@@ -295,11 +311,11 @@ async def sendimage(chat_id, user, bot, loading_msg=None, reply_to_message_id=No
         except Exception as e:
             image_logger.error(f"❌ Unexpected error sending image to chat {chat_id}: {e}")
     except Exception as e:
-        image_logger.critical(f"💥 Critical error in sendimage function: {e}")
+        image_logger.critical(f"💥 Critical error in send_image function: {e}")
         raise
 
 
-async def react(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """React to a message based on chat type and content."""
     try:
         message = update.message
@@ -309,7 +325,7 @@ async def react(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         chat_type = message.chat.type
         bot = context.bot
-        emoji = randomreaction()
+        emoji = get_random_reaction()
         lowered = (message.text or "").lower()
         user_id = message.from_user.id if message.from_user else None
 
@@ -347,10 +363,10 @@ async def react(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             reaction_logger.debug("❌ No reaction conditions met")
     except Exception as e:
-        reaction_logger.critical(f"💥 Critical error in react function: {e}")
+        reaction_logger.critical(f"💥 Critical error in react_to_message function: {e}")
 
 
-def trackid(chat_id, chat_type):
+def track_chat_id(chat_id, chat_type):
     """Track user and group IDs."""
     try:
         logger.debug(f"📊 Tracking chat_id={chat_id}, chat_type={chat_type}")
@@ -373,12 +389,12 @@ def trackid(chat_id, chat_type):
         logger.error(f"❌ Error tracking chat ID {chat_id}: {e}")
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
     try:
         logger.info(f"🚀 /start command received from user {update.effective_user.id}")
         
-        await react(update, context)
+        await react_to_message(update, context)
         user = update.effective_user
         chat_id = update.effective_chat.id
 
@@ -393,13 +409,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.debug(f"✅ Initialized user state for {user.id}")
 
         # Track chat ID
-        trackid(chat_id, update.effective_chat.type)
+        track_chat_id(chat_id, update.effective_chat.type)
 
         # Send typing action before responding
-        await sendchataction(context, chat_id, ChatAction.TYPING)
+        await send_chat_action(context, chat_id, ChatAction.TYPING)
         
         # Send loading message and then welcome image
-        emoji_msg = randomemoji()
+        emoji_msg = get_random_emoji()
         try:
             loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
             logger.debug(f"✅ Sent loading emoji message to chat {chat_id}")
@@ -407,31 +423,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             logger.error(f"❌ Failed to send loading message to chat {chat_id}: {e}")
             return
 
-        await sendimage(chat_id, user, context.bot, loading_msg=loading_msg)
+        await send_image(chat_id, user, context.bot, loading_msg=loading_msg)
         logger.info(f"✅ /start command completed for user {user.id}")
         
     except Exception as e:
         logger.critical(f"💥 Critical error in /start command: {e}")
         try:
-            await update.message.reply_text("⚠️ Something went wrong. Please try again.")
+            await update.message.reply_text(ERROR_MESSAGES["general_error"])
         except:
             pass
 
 
-async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /ping command."""
     try:
         user_id = update.effective_user.id if update.effective_user else None
         logger.info(f"🏓 /ping command received from user {user_id}")
         
-        await react(update, context)
+        await react_to_message(update, context)
         
         # Show typing action before ping
-        await sendchataction(context, update.effective_chat.id, ChatAction.TYPING)
+        await send_chat_action(context, update.effective_chat.id, ChatAction.TYPING)
         
         start_time = time.time()
         try:
-            msg = await update.message.reply_text("🛰️ Pinging...")
+            msg = await update.message.reply_text(STATUS_MESSAGES["pinging"])
             logger.debug(f"✅ Sent ping message to chat {update.effective_chat.id}")
         except Exception as e:
             logger.error(f"❌ Failed to send ping message: {e}")
@@ -453,12 +469,12 @@ async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         logger.critical(f"💥 Critical error in /ping command: {e}")
         try:
-            await update.message.reply_text("⚠️ Ping failed. Please try again.")
+            await update.message.reply_text(ERROR_MESSAGES["ping_failed"])
         except:
             pass
 
 
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /broadcast command (owner only)."""
     try:
         user_id = update.effective_user.id if update.effective_user else None
@@ -471,11 +487,13 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         broadcast_logger.info(f"✅ Authorized broadcast request from owner {OWNER_ID}")
 
         # Show typing action before showing broadcast menu  
-        await sendchataction(context, update.effective_chat.id, ChatAction.TYPING)
+        await send_chat_action(context, update.effective_chat.id, ChatAction.TYPING)
 
         keyboard = [
-            [InlineKeyboardButton("👤 User", callback_data="broadcast_user"), InlineKeyboardButton("👥 Group", callback_data="broadcast_group")],
-            [InlineKeyboardButton("🌐 All", callback_data="broadcast_all"), InlineKeyboardButton("❌ Cancel", callback_data="broadcast_cancel")]
+            [InlineKeyboardButton("👤 User", callback_data="broadcast_user"), 
+             InlineKeyboardButton("👥 Group", callback_data="broadcast_group")],
+            [InlineKeyboardButton("🌐 All", callback_data="broadcast_all"), 
+             InlineKeyboardButton("❌ Cancel", callback_data="broadcast_cancel")]
         ]
         
         try:
@@ -488,7 +506,7 @@ async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
         broadcast_logger.critical(f"💥 Critical error in /broadcast command: {e}")
 
 
-async def broadcastchoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_broadcast_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle broadcast target selection."""
     try:
         query = update.callback_query
@@ -498,25 +516,19 @@ async def broadcastchoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if query.data == "broadcast_cancel":
             try:
                 await query.answer("Broadcast cancelled!", show_alert=True)
-                await query.edit_message_text("❌ Broadcast cancelled.")
+                await query.edit_message_text(STATUS_MESSAGES["broadcast_cancelled"])
                 broadcast_logger.info(f"✅ Broadcast cancelled by user {user_id}")
             except Exception as e:
                 broadcast_logger.error(f"❌ Failed to handle broadcast cancellation: {e}")
             return
 
-        target_map = {
-            "broadcast_user": ("users", "Users selected ✅", "✅ Send the message you want to broadcast to users."),
-            "broadcast_group": ("groups", "Groups selected ✅", "✅ Send the message you want to broadcast to groups."),
-            "broadcast_all": ("all", "All users and groups selected ✅", "✅ Send the message you want to broadcast to all users and groups.")
-        }
-        
-        if query.data in target_map:
-            target, answer_text, edit_text = target_map[query.data]
+        if query.data in BROADCAST_TARGETS:
+            config = BROADCAST_TARGETS[query.data]
             try:
-                await query.answer(answer_text)
-                await query.edit_message_text(edit_text)
-                broadcast_mode[query.from_user.id] = target
-                broadcast_logger.info(f"✅ Broadcast target '{target}' selected by user {user_id}")
+                await query.answer(config["answer"])
+                await query.edit_message_text(config["message"])
+                broadcast_mode[query.from_user.id] = config["target"]
+                broadcast_logger.info(f"✅ Broadcast target '{config['target']}' selected by user {user_id}")
             except Exception as e:
                 broadcast_logger.error(f"❌ Failed to handle broadcast choice '{query.data}': {e}")
         else:
@@ -526,7 +538,7 @@ async def broadcastchoice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         broadcast_logger.critical(f"💥 Critical error in broadcast choice handler: {e}")
 
 
-async def broadcastcontent(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_broadcast_content(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle broadcast message content."""
     try:
         user_id = update.effective_user.id
@@ -546,29 +558,11 @@ async def broadcastcontent(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
         broadcast_logger.info(f"📤 Broadcasting to target: {target}")
         
-        # Show different chat actions based on message type
-        action_map = {
-            'photo': ChatAction.UPLOAD_PHOTO,
-            'video': ChatAction.UPLOAD_VIDEO,
-            'document': ChatAction.UPLOAD_DOCUMENT,
-            'audio': ChatAction.UPLOAD_AUDIO,
-            'voice': ChatAction.UPLOAD_VOICE,
-            'video_note': ChatAction.UPLOAD_VIDEO_NOTE,
-            'sticker': ChatAction.CHOOSE_STICKER,
-            'location': ChatAction.FIND_LOCATION
-        }
-        
         # Determine message type and action
-        message_type = "text"
-        for msg_type in action_map:
-            if getattr(message, msg_type, None):
-                message_type = msg_type
-                break
-                
-        chat_action = action_map.get(message_type, ChatAction.TYPING)
+        message_type, chat_action = get_message_type_and_action(message)
         broadcast_logger.debug(f"🎭 Detected message type: {message_type}, using action: {chat_action}")
         
-        await sendchataction(context, message.chat_id, chat_action)
+        await send_chat_action(context, message.chat_id, chat_action)
         
         # Determine target IDs based on selection
         if target == "users":
@@ -589,7 +583,7 @@ async def broadcastcontent(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         for cid in list(ids):
             try:
-                # Send appropriate chat action for each recipient based on message type
+                # Send appropriate chat action for each recipient
                 try:
                     await context.bot.send_chat_action(chat_id=cid, action=chat_action)
                     broadcast_logger.debug(f"✅ Chat action sent to {cid}")
@@ -621,7 +615,7 @@ async def broadcastcontent(update: Update, context: ContextTypes.DEFAULT_TYPE):
         broadcast_logger.info(f"✅ Broadcast completed: {count} successful, {failed_count} failed out of {total_targets}")
         
         # Show typing action before sending completion message
-        await sendchataction(context, message.chat_id, ChatAction.TYPING)
+        await send_chat_action(context, message.chat_id, ChatAction.TYPING)
         
         try:
             result_text = f"📢 Broadcast sent to {count} {target}."
@@ -635,12 +629,12 @@ async def broadcastcontent(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         broadcast_logger.critical(f"💥 Critical error in broadcast content handler: {e}")
         try:
-            await update.message.reply_text("⚠️ Broadcast failed. Please try again.")
+            await update.message.reply_text(ERROR_MESSAGES["broadcast_failed"])
         except:
             pass
 
 
-async def handleecho(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle echo feature for private chats and group replies to bot."""
     try:
         message = update.message
@@ -652,31 +646,13 @@ async def handleecho(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Echo feature for private chats
         if chat_type == "private":
             echo_logger.info(f"🔄 Echo triggered in private chat for user {user_id}")
-            await react(update, context)
-            
-            # Send appropriate chat action based on message type before echoing
-            action_map = {
-                'photo': ChatAction.UPLOAD_PHOTO,
-                'video': ChatAction.UPLOAD_VIDEO,
-                'document': ChatAction.UPLOAD_DOCUMENT,
-                'audio': ChatAction.UPLOAD_AUDIO,
-                'voice': ChatAction.UPLOAD_VOICE,
-                'video_note': ChatAction.UPLOAD_VIDEO_NOTE,
-                'sticker': ChatAction.CHOOSE_STICKER,
-                'location': ChatAction.FIND_LOCATION
-            }
+            await react_to_message(update, context)
             
             # Determine message type and send appropriate action
-            message_type = "text"
-            for msg_type in action_map:
-                if getattr(message, msg_type, None):
-                    message_type = msg_type
-                    break
-                    
-            chat_action = action_map.get(message_type, ChatAction.TYPING)
+            message_type, chat_action = get_message_type_and_action(message)
             echo_logger.debug(f"🎭 Private echo: message_type={message_type}, action={chat_action}")
             
-            await sendchataction(context, message.chat_id, chat_action)
+            await send_chat_action(context, message.chat_id, chat_action)
             
             try:
                 await context.bot.copy_message(
@@ -696,31 +672,13 @@ async def handleecho(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Echo feature for group replies to bot
         if message.reply_to_message and message.reply_to_message.from_user.id == context.bot.id:
             echo_logger.info(f"🔄 Echo triggered in group for reply to bot from user {user_id}")
-            await react(update, context)
-            
-            # Send appropriate chat action based on message type before echoing
-            action_map = {
-                'photo': ChatAction.UPLOAD_PHOTO,
-                'video': ChatAction.UPLOAD_VIDEO,
-                'document': ChatAction.UPLOAD_DOCUMENT,
-                'audio': ChatAction.UPLOAD_AUDIO,
-                'voice': ChatAction.UPLOAD_VOICE,
-                'video_note': ChatAction.UPLOAD_VIDEO_NOTE,
-                'sticker': ChatAction.CHOOSE_STICKER,
-                'location': ChatAction.FIND_LOCATION
-            }
+            await react_to_message(update, context)
             
             # Determine message type and send appropriate action
-            message_type = "text"
-            for msg_type in action_map:
-                if getattr(message, msg_type, None):
-                    message_type = msg_type
-                    break
-                    
-            chat_action = action_map.get(message_type, ChatAction.TYPING)
+            message_type, chat_action = get_message_type_and_action(message)
             echo_logger.debug(f"🎭 Group echo: message_type={message_type}, action={chat_action}")
             
-            await sendchataction(context, message.chat_id, chat_action)
+            await send_chat_action(context, message.chat_id, chat_action)
             
             try:
                 await context.bot.copy_message(
@@ -746,7 +704,7 @@ async def handleecho(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return False
 
 
-async def messagehandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle all incoming messages - includes echo feature and keyword triggering."""
     try:
         user = update.effective_user
@@ -762,7 +720,7 @@ async def messagehandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.info(f"📥 Message from user {user_id} in {chat_type} chat {chat_id}")
 
         # Track chat ID
-        trackid(message.chat_id, chat_type)
+        track_chat_id(message.chat_id, chat_type)
 
         text = message.text or ""
         lowered = text.lower()
@@ -772,14 +730,14 @@ async def messagehandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Handle keyword trigger in any chat
         if TRIGGER_KEYWORD in lowered:
             logger.info(f"🎯 Keyword '{TRIGGER_KEYWORD}' triggered by user {user_id}")
-            await react(update, context)
+            await react_to_message(update, context)
             reply_id = message.message_id if chat_type in ["group", "supergroup"] else None
             
             # Show typing action before sending emoji message
-            await sendchataction(context, message.chat_id, ChatAction.TYPING)
+            await send_chat_action(context, message.chat_id, ChatAction.TYPING)
             
             try:
-                emoji_msg = randomemoji()
+                emoji_msg = get_random_emoji()
                 loading_msg = await context.bot.send_message(
                     chat_id=message.chat_id,
                     text=emoji_msg,
@@ -787,7 +745,7 @@ async def messagehandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 )
                 logger.debug(f"✅ Keyword response emoji sent to chat {chat_id}")
                 
-                await sendimage(message.chat_id, user, context.bot, loading_msg=loading_msg)
+                await send_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
                 logger.info(f"✅ Keyword response completed for user {user_id}")
                 
             except Exception as e:
@@ -795,7 +753,7 @@ async def messagehandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         # Handle echo feature
-        echo_handled = await handleecho(update, context)
+        echo_handled = await handle_echo(update, context)
         if echo_handled:
             logger.debug("✅ Message handled by echo feature")
         else:
@@ -805,14 +763,11 @@ async def messagehandler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.critical(f"💥 Critical error in message handler: {e}")
 
 
-async def setcommands(application):
+async def set_bot_commands(application):
     """Set bot commands in Telegram."""
     try:
         logger.info("⚙️ Setting bot commands")
-        await application.bot.set_my_commands([
-            ("start", "🎨 Get an image"),
-            ("ping", "🏓 Check bot latency")
-        ])
+        await application.bot.set_my_commands(BOT_COMMANDS)
         logger.info("✅ Bot commands set successfully")
     except Exception as e:
         logger.error(f"❌ Failed to set bot commands: {e}")
@@ -835,7 +790,7 @@ class BroadcastFilter(filters.MessageFilter):
             return False
 
 
-def setupbot():
+def setup_bot():
     """Create and configure the bot application."""
     try:
         logger.info("🤖 Setting up bot application")
@@ -850,25 +805,25 @@ def setupbot():
         logger.info("🔧 Setting up bot handlers...")
 
         # Add command handlers
-        app.add_handler(CommandHandler("start", start))
-        app.add_handler(CommandHandler("ping", ping))
-        app.add_handler(CommandHandler("broadcast", broadcast))
-        app.add_handler(CallbackQueryHandler(broadcastchoice, pattern="^broadcast_"))
+        app.add_handler(CommandHandler("start", start_command))
+        app.add_handler(CommandHandler("ping", ping_command))
+        app.add_handler(CommandHandler("broadcast", broadcast_command))
+        app.add_handler(CallbackQueryHandler(handle_broadcast_choice, pattern="^broadcast_"))
         logger.info("✅ Command handlers added")
 
         # Add broadcast handler with custom filter
         broadcast_filter = BroadcastFilter()
         app.add_handler(MessageHandler(
             filters.ALL & (~filters.COMMAND) & broadcast_filter, 
-            broadcastcontent
+            handle_broadcast_content
         ))
         logger.info("✅ Broadcast handler added")
 
         # Add general message handler for echo and keyword features
-        app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), messagehandler))
+        app.add_handler(MessageHandler(filters.ALL & (~filters.COMMAND), handle_message))
         logger.info("✅ Message handler added")
 
-        app.post_init = setcommands
+        app.post_init = set_bot_commands
         logger.info("✅ Bot handlers setup complete")
         return app
         
@@ -877,7 +832,7 @@ def setupbot():
         raise
 
 
-class DummyHandler(BaseHTTPRequestHandler):
+class HealthCheckHandler(BaseHTTPRequestHandler):
     """HTTP handler for health checks."""
 
     def do_GET(self):
@@ -885,7 +840,7 @@ class DummyHandler(BaseHTTPRequestHandler):
             logger.debug("🌐 Health check GET request received")
             self.send_response(200)
             self.end_headers()
-            self.wfile.write(b"Sakura bot is alive!")
+            self.wfile.write(STATUS_MESSAGES["server_alive"].encode())
             logger.debug("✅ Health check response sent")
         except Exception as e:
             logger.error(f"❌ Error in health check GET: {e}")
@@ -904,13 +859,13 @@ class DummyHandler(BaseHTTPRequestHandler):
         pass
 
 
-def startserver():
+def start_health_server():
     """Start HTTP server for health checks."""
     try:
         logger.info("🌐 Starting HTTP health check server")
         port = int(os.environ.get("PORT", 5000))
         
-        server = HTTPServer(("0.0.0.0", port), DummyHandler)
+        server = HTTPServer(("0.0.0.0", port), HealthCheckHandler)
         logger.info(f"✅ HTTP server listening on 0.0.0.0:{port}")
         server.serve_forever()
         
@@ -938,7 +893,7 @@ def main():
         logger.info(f"👑 Owner ID: {OWNER_ID}")
         logger.info(f"🔑 Trigger Keyword: {TRIGGER_KEYWORD}")
 
-        app = setupbot()
+        app = setup_bot()
         logger.info("✅ Bot is running with anime, echo, and broadcast features 👻")
 
         # Log initial stats
@@ -960,7 +915,7 @@ def main():
 if __name__ == "__main__":
     try:
         # Start HTTP server in background thread
-        server_thread = threading.Thread(target=startserver, daemon=True)
+        server_thread = threading.Thread(target=start_health_server, daemon=True)
         server_thread.start()
         logger.info("✅ HTTP server thread started")
         
@@ -969,49 +924,4 @@ if __name__ == "__main__":
         
     except Exception as e:
         logger.critical(f"💥 Critical startup error: {e}")
-        exit(1)()
-        self.wfile.write(b"Sakura bot is alive!")
-
-    def do_HEAD(self):
-        self.send_response(200)
-        self.end_headers()
-
-    def log_message(self, format, *args):
-        """Suppress HTTP server logs."""
-        pass
-
-
-def startserver():
-    """Start HTTP server for health checks."""
-    logger.info("🌐 Starting HTTP health check server")
-    port = int(os.environ.get("PORT", 5000))
-    try:
-        server = HTTPServer(("0.0.0.0", port), DummyHandler)
-        logger.info(f"✅ HTTP server listening on 0.0.0.0:{port}")
-        server.serve_forever()
-    except Exception as e:
-        logger.error(f"❌ Failed to start HTTP server: {e}")
-        raise
-
-
-def main():
-    """Main function to run the bot."""
-    if not BOT_TOKEN:
-        logger.error("❌ BOT_TOKEN environment variable is not set")
-        return
-
-    app = setupbot()
-    logger.info("✅ Bot is running with anime, echo, and broadcast 👻")
-
-    try:
-        app.run_polling()
-    except KeyboardInterrupt:
-        logger.info("👋 Bot stopped by user")
-    except Exception as e:
-        logger.error(f"❌ Bot crashed: {e}")
-        raise
-
-
-if __name__ == "__main__":
-    threading.Thread(target=startserver, daemon=True).start()
-    main()
+        exit(1)
