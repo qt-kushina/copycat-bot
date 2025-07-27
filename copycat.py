@@ -5,8 +5,6 @@ import random
 import time
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from dataclasses import dataclass
-from typing import Optional, List
 
 import aiohttp
 import telegram
@@ -17,25 +15,11 @@ from telegram.ext import (
     filters, ContextTypes, Defaults
 )
 
-# Pyrogram imports for message effects
-try:
-    from pyrogram import Client as PyrogramClient
-    from pyrogram.types import Message as PyrogramMessage
-    PYROGRAM_AVAILABLE = True
-except ImportError:
-    PYROGRAM_AVAILABLE = False
-    print("⚠️ Pyrogram not installed. Message effects will be disabled.")
-    print("Install with: pip install pyrogram")
-
 # Configuration
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 TRIGGER_KEYWORD = "billu"
 WALLHAVEN_API_URL = "https://wallhaven.cc/api/v1/search?q=flower&ratios=16x9&sorting=random&categories=100&purity=100"
-
-# Pyrogram API credentials (required for message effects)
-API_ID = int(os.environ.get("API_ID", "0"))
-API_HASH = os.environ.get("API_HASH", "")
 
 # Welcome Messages Dictionary
 WELCOME_MESSAGES = [
@@ -96,20 +80,21 @@ STATUS_MESSAGES = {
     "server_alive": "Sakura bot is alive!"
 }
 
-# Chat Action Mapping
+# Chat Action Mapping - All 10 available ChatActions from telegram.constants.ChatAction
 MESSAGE_TYPE_ACTIONS = {
     'photo': ChatAction.UPLOAD_PHOTO,
     'video': ChatAction.UPLOAD_VIDEO,
     'document': ChatAction.UPLOAD_DOCUMENT,
-    'audio': ChatAction.RECORD_VOICE,
-    'voice': ChatAction.RECORD_VOICE,
-    'video_note': ChatAction.RECORD_VIDEO_NOTE,
+    'audio': ChatAction.RECORD_VOICE,        # For audio files, use RECORD_VOICE
+    'voice': ChatAction.RECORD_VOICE,        # For voice messages
+    'video_note': ChatAction.RECORD_VIDEO_NOTE,  # For video notes
     'sticker': ChatAction.CHOOSE_STICKER,
     'location': ChatAction.FIND_LOCATION,
     'text': ChatAction.TYPING,
-    'upload_voice': ChatAction.UPLOAD_VOICE,
-    'upload_video_note': ChatAction.UPLOAD_VIDEO_NOTE,
-    'record_video': ChatAction.RECORD_VIDEO
+    # Additional chat actions available:
+    'upload_voice': ChatAction.UPLOAD_VOICE,        # For uploading voice files
+    'upload_video_note': ChatAction.UPLOAD_VIDEO_NOTE,  # For uploading video notes
+    'record_video': ChatAction.RECORD_VIDEO         # For recording video
 }
 
 # Broadcast Target Mapping
@@ -137,96 +122,11 @@ BOT_COMMANDS = [
     ("ping", "🏓 Check bot latency")
 ]
 
-@dataclass
-class EffectInfo:
-    """Information about a message effect."""
-    id: int
-    name: str
-    emoji: str
-    description: str
-    category: str
-
-class MessageEffects:
-    """Handler for Telegram message effects."""
-    
-    def __init__(self):
-        """Initialize with available effects."""
-        self.effects = {
-            'fire': EffectInfo(
-                id=5104841245755180586,
-                name='Fire',
-                emoji='🔥',
-                description='Blazing fire effect',
-                category='energy'
-            ),
-            'party': EffectInfo(
-                id=5046509860389126442,
-                name='Party',
-                emoji='🎉',
-                description='Celebration confetti',
-                category='celebration'
-            ),
-            'heart': EffectInfo(
-                id=5044134455711629726,
-                name='Heart',
-                emoji='❤️',
-                description='Loving hearts effect',
-                category='emotion'
-            ),
-            'thumbs_up': EffectInfo(
-                id=5107584321108051014,
-                name='Thumbs Up',
-                emoji='👍',
-                description='Positive thumbs up',
-                category='reaction'
-            ),
-            'thumbs_down': EffectInfo(
-                id=5104858069142078462,
-                name='Thumbs Down',
-                emoji='👎',
-                description='Negative thumbs down',
-                category='reaction'
-            ),
-            'poop': EffectInfo(
-                id=5046589136895476101,
-                name='Poop',
-                emoji='💩',
-                description='Funny poop effect',
-                category='humor'
-            ),
-            'hearts_shower': EffectInfo(
-                id=5159385139981059251,
-                name='Hearts Shower',
-                emoji='❤️❤️❤️',
-                description='Shower of hearts',
-                category='emotion'
-            )
-        }
-
-    def get_effect_id(self, effect_name: str) -> Optional[int]:
-        """Get effect ID by name."""
-        effect = self.effects.get(effect_name.lower())
-        return effect.id if effect else None
-    
-    def get_random_effect(self) -> str:
-        """Get a random effect name."""
-        return random.choice(list(self.effects.keys()))
-    
-    def get_all_effects(self) -> List[EffectInfo]:
-        """Get all available effects."""
-        return list(self.effects.values())
-
-    def get_random_private_effect(self) -> str:
-        """Get a random effect suitable for private chats."""
-        # Prefer emotion and celebration effects for private chats
-        private_friendly = ['heart', 'hearts_shower', 'party', 'fire']
-        available = [name for name in private_friendly if name in self.effects]
-        return random.choice(available) if available else self.get_random_effect()
-
 # Logging setup with clean formatting
 class ColoredFormatter(logging.Formatter):
     """Custom formatter with colors and clean layout."""
     
+    # ANSI color codes
     COLORS = {
         'DEBUG': '\033[36m',    # Cyan
         'INFO': '\033[32m',     # Green
@@ -237,29 +137,38 @@ class ColoredFormatter(logging.Formatter):
     }
     
     def format(self, record):
+        # Get color for log level
         color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
         reset = self.COLORS['RESET']
+        
+        # Format timestamp
         timestamp = self.formatTime(record, '%H:%M:%S')
+        
+        # Create clean log format
         log_format = f"{color}[{timestamp}] {record.levelname:<8}{reset} {record.name:<15} | {record.getMessage()}"
         
+        # Handle exceptions
         if record.exc_info:
             log_format += f"\n{self.formatException(record.exc_info)}"
             
         return log_format
 
-# Configure logging
+# Configure logging with custom formatter
 logging.basicConfig(
     level=logging.INFO,
-    format='%(message)s',
-    handlers=[logging.StreamHandler()]
+    format='%(message)s',  # We'll handle formatting in ColoredFormatter
+    handlers=[
+        logging.StreamHandler()
+    ]
 )
 
+# Apply custom formatter to all handlers
 for handler in logging.root.handlers:
     handler.setFormatter(ColoredFormatter())
 
 logger = logging.getLogger(__name__)
 
-# Create component loggers
+# Create separate loggers for different components with clean names
 loggers = {
     'reaction': logging.getLogger('REACT'),
     'echo': logging.getLogger('ECHO'),
@@ -269,20 +178,18 @@ loggers = {
     'chat_action': logging.getLogger('ACTION'),
     'tracking': logging.getLogger('TRACK'),
     'commands': logging.getLogger('CMD'),
-    'errors': logging.getLogger('ERROR'),
-    'effects': logging.getLogger('EFFECTS'),
-    'pyrogram': logging.getLogger('PYROGRAM')
+    'errors': logging.getLogger('ERROR')
 }
 
+# Apply formatter to all component loggers
 for component_logger in loggers.values():
     for handler in component_logger.handlers:
         handler.setFormatter(ColoredFormatter())
 
-# Disable telegram library's debug logs
+# Disable telegram library's debug logs to keep terminal clean
 logging.getLogger('telegram').setLevel(logging.WARNING)
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
-logging.getLogger('pyrogram').setLevel(logging.WARNING)
 
 # Bot state storage
 user_button_state = {}
@@ -290,120 +197,6 @@ user_ids = set()
 group_ids = set()
 broadcast_mode = {}
 
-# Initialize message effects
-message_effects = MessageEffects()
-
-# Global Pyrogram client
-pyrogram_client = None
-
-class PyrogramEffectsHandler:
-    """Handler for Pyrogram-based message effects."""
-    
-    def __init__(self):
-        self.client = None
-        self.enabled = False
-        
-    async def initialize(self):
-        """Initialize Pyrogram client for effects."""
-        if not PYROGRAM_AVAILABLE:
-            loggers['effects'].warning("Pyrogram not available - effects disabled")
-            return False
-            
-        if not API_ID or not API_HASH:
-            loggers['effects'].warning("API_ID or API_HASH not set - effects disabled")
-            return False
-            
-        try:
-            self.client = PyrogramClient(
-                name="sakura_effects_bot",
-                api_id=API_ID,
-                api_hash=API_HASH,
-                bot_token=BOT_TOKEN,
-                in_memory=True
-            )
-            
-            await self.client.start()
-            loggers['effects'].info("✅ Pyrogram client initialized for message effects")
-            self.enabled = True
-            return True
-            
-        except Exception as e:
-            loggers['effects'].error(f"Failed to initialize Pyrogram client: {str(e)[:100]}")
-            self.enabled = False
-            return False
-    
-    async def send_message_with_effect(self, chat_id: int, text: str = None, photo: str = None, 
-                                     caption: str = None, effect_id: int = None, 
-                                     reply_to_message_id: int = None) -> bool:
-        """Send message with effect using Pyrogram."""
-        if not self.enabled or not self.client:
-            loggers['effects'].debug("Effects not enabled, falling back to normal message")
-            return False
-            
-        try:
-            loggers['effects'].info(f"Attempting to send message with effect {effect_id} to chat {chat_id}")
-            
-            # Try to send with effect (this may not be supported in current Pyrogram version)
-            try:
-                if photo:
-                    # Try send_photo with message_effect_id (may fail)
-                    await self.client.send_photo(
-                        chat_id=chat_id,
-                        photo=photo,
-                        caption=caption or "",
-                        reply_to_message_id=reply_to_message_id,
-                        message_effect_id=effect_id  # This parameter may not exist
-                    )
-                else:
-                    # Try send_message with message_effect_id (may fail)
-                    await self.client.send_message(
-                        chat_id=chat_id,
-                        text=text or "",
-                        reply_to_message_id=reply_to_message_id,
-                        message_effect_id=effect_id  # This parameter may not exist
-                    )
-                
-                loggers['effects'].info(f"✅ Successfully sent message with effect {effect_id}")
-                return True
-                
-            except TypeError as e:
-                # message_effect_id parameter is not supported
-                loggers['effects'].warning(f"Message effects not supported in this Pyrogram version: {str(e)[:100]}")
-                loggers['effects'].info("Sending normal message via Pyrogram instead")
-                
-                # Fallback to normal message via Pyrogram
-                if photo:
-                    await self.client.send_photo(
-                        chat_id=chat_id,
-                        photo=photo,
-                        caption=caption or "",
-                        reply_to_message_id=reply_to_message_id
-                    )
-                else:
-                    await self.client.send_message(
-                        chat_id=chat_id,
-                        text=text or "",
-                        reply_to_message_id=reply_to_message_id
-                    )
-                
-                loggers['effects'].info("✅ Successfully sent normal message via Pyrogram")
-                return True
-                
-        except Exception as e:
-            loggers['effects'].error(f"Failed to send message via Pyrogram: {str(e)[:100]}")
-            return False
-    
-    async def close(self):
-        """Close Pyrogram client."""
-        if self.client:
-            try:
-                await self.client.stop()
-                loggers['effects'].info("Pyrogram client closed")
-            except Exception as e:
-                loggers['effects'].error(f"Error closing Pyrogram client: {str(e)[:50]}")
-
-# Initialize effects handler
-effects_handler = PyrogramEffectsHandler()
 
 async def send_chat_action(context, chat_id, action):
     """Send chat action without delay."""
@@ -420,6 +213,7 @@ async def send_chat_action(context, chat_id, action):
     except Exception as e:
         loggers['errors'].error(f"Unexpected error sending action: {str(e)[:50]}")
 
+
 def get_random_emoji():
     """Get a random soft emoji."""
     try:
@@ -428,7 +222,8 @@ def get_random_emoji():
         return emoji
     except Exception:
         loggers['errors'].error("Error selecting random emoji, using fallback")
-        return "💖"
+        return "💖"  # fallback emoji
+
 
 def get_random_reaction():
     """Get a random reaction emoji."""
@@ -438,7 +233,8 @@ def get_random_reaction():
         return reaction
     except Exception:
         loggers['errors'].error("Error selecting random reaction, using fallback")
-        return "👍"
+        return "👍"  # fallback reaction
+
 
 def create_user_mention(user):
     """Create a formatted mention string for a user."""
@@ -458,6 +254,7 @@ def create_user_mention(user):
     except Exception as e:
         loggers['errors'].error(f"Error creating user mention: {str(e)[:50]}")
         return "Unknown User"
+
 
 async def fetch_image():
     """Fetch a random image from Wallhaven API."""
@@ -489,6 +286,7 @@ async def fetch_image():
         loggers['api'].error(f"Unexpected error: {str(e)[:50]}")
     return None
 
+
 def get_message_type_and_action(message):
     """Determine message type and corresponding chat action."""
     for msg_type, action in MESSAGE_TYPE_ACTIONS.items():
@@ -498,10 +296,11 @@ def get_message_type_and_action(message):
             return msg_type, action
     return 'text', MESSAGE_TYPE_ACTIONS['text']
 
-async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None, chat_type="private"):
+
+async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
     """Send a welcome image with a personalized message."""
     try:
-        loggers['image'].info(f"Starting image send for chat {chat_id} (type: {chat_type})")
+        loggers['image'].info(f"Starting image send for chat {chat_id}")
         
         # Show upload photo action
         try:
@@ -528,34 +327,8 @@ async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=N
         mention = create_user_mention(user)
         greeting = random.choice(WELCOME_MESSAGES).format(mention=mention)
 
-        # Try to send with effects for private chats
-        effect_sent = False
-        if chat_type == "private" and effects_handler.enabled:
-            effect_name = message_effects.get_random_private_effect()
-            effect_id = message_effects.get_effect_id(effect_name)
-            
-            # Delete loading message if it exists (Pyrogram will send new message)
-            if loading_msg:
-                try:
-                    await loading_msg.delete()
-                except:
-                    pass
-            
-            effect_sent = await effects_handler.send_message_with_effect(
-                chat_id=chat_id,
-                photo=image_url,
-                caption=greeting,
-                effect_id=effect_id,
-                reply_to_message_id=reply_to_message_id
-            )
-            
-            if effect_sent:
-                loggers['effects'].info(f"Successfully sent image with effect '{effect_name}'")
-                return
-
-        # Fallback to normal message if effects failed or not available
         try:
-            if loading_msg and not effect_sent:
+            if loading_msg:
                 await bot.edit_message_media(
                     chat_id=chat_id,
                     message_id=loading_msg.message_id,
@@ -566,7 +339,7 @@ async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=N
                     )
                 )
                 loggers['image'].info("Successfully updated loading message with image")
-            elif not effect_sent:
+            else:
                 await bot.send_photo(
                     chat_id=chat_id,
                     photo=image_url,
@@ -576,7 +349,8 @@ async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=N
                 )
                 loggers['image'].info("Successfully sent new image")
         except telegram.error.BadRequest:
-            loggers['image'].warning("Bad request sending image, trying text fallback")
+            loggers['image'].warning("Bad request sending image, trying fallback")
+            # Try sending text fallback
             try:
                 fallback_msg = f"{greeting}\n\n{ERROR_MESSAGES['image_fetch_failed']}"
                 if loading_msg:
@@ -595,6 +369,7 @@ async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=N
     except Exception as e:
         loggers['errors'].critical(f"Critical error in send_image: {str(e)[:50]}")
         raise
+
 
 async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """React to a message based on chat type and content."""
@@ -641,6 +416,7 @@ async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         loggers['errors'].critical(f"Critical error in react_to_message: {str(e)[:50]}")
 
+
 def track_chat_id(chat_id, chat_type):
     """Track user and group IDs."""
     try:
@@ -655,31 +431,12 @@ def track_chat_id(chat_id, chat_type):
     except Exception as e:
         loggers['errors'].error(f"Error tracking chat ID {chat_id}: {str(e)[:50]}")
 
-async def send_loading_message_with_effect(bot, chat_id, text, chat_type="private"):
-    """Send loading message, with effect if possible."""
-    if chat_type == "private" and effects_handler.enabled:
-        effect_name = message_effects.get_random_private_effect()
-        effect_id = message_effects.get_effect_id(effect_name)
-        
-        effect_sent = await effects_handler.send_message_with_effect(
-            chat_id=chat_id,
-            text=text,
-            effect_id=effect_id
-        )
-        
-        if effect_sent:
-            loggers['effects'].info(f"Sent loading message with effect '{effect_name}'")
-            return None  # Pyrogram message, can't edit later
-    
-    # Fallback to normal message
-    return await bot.send_message(chat_id=chat_id, text=text)
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
     try:
         user_id = update.effective_user.id if update.effective_user else None
-        chat_type = update.effective_chat.type
-        loggers['commands'].info(f"/start from user {user_id} in {chat_type} chat")
+        loggers['commands'].info(f"/start from user {user_id}")
         
         await react_to_message(update, context)
         user = update.effective_user
@@ -693,18 +450,20 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_button_state[user.id] = {"updates": False, "group": False, "addme": False}
 
         # Track chat ID
-        track_chat_id(chat_id, chat_type)
+        track_chat_id(chat_id, update.effective_chat.type)
 
         # Send typing action before responding
         await send_chat_action(context, chat_id, ChatAction.TYPING)
         
-        # Send loading message 
+        # Send loading message and then welcome image
         emoji_msg = get_random_emoji()
-        loading_msg = await send_loading_message_with_effect(
-            context.bot, chat_id, emoji_msg, chat_type
-        )
+        try:
+            loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
+        except Exception as e:
+            loggers['errors'].error(f"Failed to send loading message: {str(e)[:50]}")
+            return
 
-        await send_image(chat_id, user, context.bot, loading_msg=loading_msg, chat_type=chat_type)
+        await send_image(chat_id, user, context.bot, loading_msg=loading_msg)
         loggers['commands'].info(f"/start completed for user {user.id}")
         
     except Exception as e:
@@ -713,6 +472,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(ERROR_MESSAGES["general_error"])
         except:
             pass
+
 
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /ping command."""
@@ -750,6 +510,7 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(ERROR_MESSAGES["ping_failed"])
         except:
             pass
+
 
 async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /broadcast command (owner only)."""
@@ -1001,16 +762,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             try:
                 emoji_msg = get_random_emoji()
-                
-                # Send loading message with effect for private chats
-                loading_msg = await send_loading_message_with_effect(
-                    context.bot, message.chat_id, emoji_msg, chat_type
+                loading_msg = await context.bot.send_message(
+                    chat_id=message.chat_id,
+                    text=emoji_msg,
+                    reply_to_message_id=reply_id
                 )
-                
                 logger.debug(f"✅ Keyword response emoji sent to chat {chat_id}")
                 
-                await send_image(message.chat_id, user, context.bot, loading_msg=loading_msg, 
-                               reply_to_message_id=reply_id, chat_type=chat_type)
+                await send_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
                 logger.info(f"✅ Keyword response completed for user {user_id}")
                 
             except Exception as e:
@@ -1142,23 +901,11 @@ def start_health_server():
         raise
 
 
-async def initialize_effects():
-    """Initialize Pyrogram client for effects."""
-    try:
-        await effects_handler.initialize()
-        if effects_handler.enabled:
-            logger.info("🎭 Message effects are enabled!")
-        else:
-            logger.warning("⚠️ Message effects are disabled - check API credentials")
-    except Exception as e:
-        logger.error(f"Failed to initialize effects: {str(e)[:100]}")
-
-
 def main():
     """Main function to run the bot."""
     try:
         print("\n" + "="*60)
-        print("🌸 SAKURA BOT WITH PYROGRAM EFFECTS STARTING 🌸")
+        print("🌸 SAKURA BOT STARTING 🌸")
         print("="*60)
         
         if not BOT_TOKEN:
@@ -1171,44 +918,18 @@ def main():
         logger.info(f"🤖 Bot Token: {'*' * (len(BOT_TOKEN) - 8) + BOT_TOKEN[-8:]}")
         logger.info(f"👑 Owner ID: {OWNER_ID}")
         logger.info(f"🔑 Trigger Keyword: {TRIGGER_KEYWORD}")
-        logger.info(f"✨ Message Effects: {len(message_effects.effects)} effects loaded")
-
-        # Check Pyrogram availability and credentials
-        if PYROGRAM_AVAILABLE:
-            if API_ID and API_HASH:
-                logger.info(f"🔑 API ID: {API_ID}")
-                logger.info(f"🔑 API Hash: {'*' * (len(API_HASH) - 8) + API_HASH[-8:]}")
-                logger.info("✅ Pyrogram credentials available - effects will be enabled")
-            else:
-                logger.warning("⚠️ API_ID or API_HASH not set - effects will be disabled")
-                logger.info("💡 Get your API credentials from https://my.telegram.org/apps")
-        else:
-            logger.warning("⚠️ Pyrogram not installed - effects will be disabled")
-
-        # Log available effects
-        effects_list = [f"{info.name} ({info.emoji})" for info in message_effects.get_all_effects()]
-        logger.info(f"🎭 Available Effects: {', '.join(effects_list)}")
 
         app = setup_bot()
-        
-        # Initialize effects in the event loop
-        async def init_and_run():
-            await initialize_effects()
-            await app.initialize()
-            await app.start()
-            await app.updater.start_polling()
-            
-            try:
-                # Keep running
-                await asyncio.Event().wait()
-            except KeyboardInterrupt:
-                logger.info("👋 Bot stopped by user (Ctrl+C)")
-            finally:
-                await effects_handler.close()
-                await app.stop()
-                await app.shutdown()
+        logger.info("✅ Bot is running with anime, echo, and broadcast features 👻")
 
-        asyncio.run(init_and_run())
+        # Log initial stats
+        logger.info(f"📊 Initial Stats - Users: {len(user_ids)}, Groups: {len(group_ids)}")
+        
+        print("="*60)
+        print("✅ Bot is now running! Press Ctrl+C to stop.")
+        print("="*60 + "\n")
+
+        app.run_polling()
         
     except KeyboardInterrupt:
         print("\n" + "="*60)
