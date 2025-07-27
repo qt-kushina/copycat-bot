@@ -341,31 +341,56 @@ class PyrogramEffectsHandler:
             return False
             
         try:
-            loggers['effects'].info(f"Sending message with effect {effect_id} to chat {chat_id}")
+            loggers['effects'].info(f"Attempting to send message with effect {effect_id} to chat {chat_id}")
             
-            if photo:
-                # Send photo with effect
-                await self.client.send_photo(
-                    chat_id=chat_id,
-                    photo=photo,
-                    caption=caption or "",
-                    message_effect_id=effect_id,
-                    reply_to_message_id=reply_to_message_id
-                )
-            else:
-                # Send text with effect
-                await self.client.send_message(
-                    chat_id=chat_id,
-                    text=text or "",
-                    message_effect_id=effect_id,
-                    reply_to_message_id=reply_to_message_id
-                )
-            
-            loggers['effects'].info(f"✅ Successfully sent message with effect {effect_id}")
-            return True
-            
+            # Try to send with effect (this may not be supported in current Pyrogram version)
+            try:
+                if photo:
+                    # Try send_photo with message_effect_id (may fail)
+                    await self.client.send_photo(
+                        chat_id=chat_id,
+                        photo=photo,
+                        caption=caption or "",
+                        reply_to_message_id=reply_to_message_id,
+                        message_effect_id=effect_id  # This parameter may not exist
+                    )
+                else:
+                    # Try send_message with message_effect_id (may fail)
+                    await self.client.send_message(
+                        chat_id=chat_id,
+                        text=text or "",
+                        reply_to_message_id=reply_to_message_id,
+                        message_effect_id=effect_id  # This parameter may not exist
+                    )
+                
+                loggers['effects'].info(f"✅ Successfully sent message with effect {effect_id}")
+                return True
+                
+            except TypeError as e:
+                # message_effect_id parameter is not supported
+                loggers['effects'].warning(f"Message effects not supported in this Pyrogram version: {str(e)[:100]}")
+                loggers['effects'].info("Sending normal message via Pyrogram instead")
+                
+                # Fallback to normal message via Pyrogram
+                if photo:
+                    await self.client.send_photo(
+                        chat_id=chat_id,
+                        photo=photo,
+                        caption=caption or "",
+                        reply_to_message_id=reply_to_message_id
+                    )
+                else:
+                    await self.client.send_message(
+                        chat_id=chat_id,
+                        text=text or "",
+                        reply_to_message_id=reply_to_message_id
+                    )
+                
+                loggers['effects'].info("✅ Successfully sent normal message via Pyrogram")
+                return True
+                
         except Exception as e:
-            loggers['effects'].error(f"Failed to send message with effect: {str(e)[:100]}")
+            loggers['effects'].error(f"Failed to send message via Pyrogram: {str(e)[:100]}")
             return False
     
     async def close(self):
