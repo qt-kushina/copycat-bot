@@ -21,6 +21,7 @@ OWNER_ID = int(os.environ.get("OWNER_ID", "0"))
 TRIGGER_KEYWORD = "billu"
 WALLHAVEN_API_URL = "https://wallhaven.cc/api/v1/search?q=flower&ratios=16x9&sorting=random&categories=100&purity=100"
 
+
 # Welcome Messages Dictionary
 WELCOME_MESSAGES = [
     "Hello {mention} just wanted to share something with love 💖",
