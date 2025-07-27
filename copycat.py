@@ -5,6 +5,8 @@ import random
 import time
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from dataclasses import dataclass
+from typing import Optional, List
 
 import aiohttp
 import telegram
@@ -80,21 +82,20 @@ STATUS_MESSAGES = {
     "server_alive": "Sakura bot is alive!"
 }
 
-# Chat Action Mapping - All 10 available ChatActions from telegram.constants.ChatAction
+# Chat Action Mapping
 MESSAGE_TYPE_ACTIONS = {
     'photo': ChatAction.UPLOAD_PHOTO,
     'video': ChatAction.UPLOAD_VIDEO,
     'document': ChatAction.UPLOAD_DOCUMENT,
-    'audio': ChatAction.RECORD_VOICE,        # For audio files, use RECORD_VOICE
-    'voice': ChatAction.RECORD_VOICE,        # For voice messages
-    'video_note': ChatAction.RECORD_VIDEO_NOTE,  # For video notes
+    'audio': ChatAction.RECORD_VOICE,
+    'voice': ChatAction.RECORD_VOICE,
+    'video_note': ChatAction.RECORD_VIDEO_NOTE,
     'sticker': ChatAction.CHOOSE_STICKER,
     'location': ChatAction.FIND_LOCATION,
     'text': ChatAction.TYPING,
-    # Additional chat actions available:
-    'upload_voice': ChatAction.UPLOAD_VOICE,        # For uploading voice files
-    'upload_video_note': ChatAction.UPLOAD_VIDEO_NOTE,  # For uploading video notes
-    'record_video': ChatAction.RECORD_VIDEO         # For recording video
+    'upload_voice': ChatAction.UPLOAD_VOICE,
+    'upload_video_note': ChatAction.UPLOAD_VIDEO_NOTE,
+    'record_video': ChatAction.RECORD_VIDEO
 }
 
 # Broadcast Target Mapping
@@ -122,11 +123,96 @@ BOT_COMMANDS = [
     ("ping", "🏓 Check bot latency")
 ]
 
+@dataclass
+class EffectInfo:
+    """Information about a message effect."""
+    id: str
+    name: str
+    emoji: str
+    description: str
+    category: str
+
+class MessageEffects:
+    """Handler for Telegram message effects."""
+    
+    def __init__(self):
+        """Initialize with available effects."""
+        self.effects = {
+            'fire': EffectInfo(
+                id='5104841245755180586',
+                name='Fire',
+                emoji='🔥',
+                description='Blazing fire effect',
+                category='energy'
+            ),
+            'party': EffectInfo(
+                id='5046509860389126442',
+                name='Party',
+                emoji='🎉',
+                description='Celebration confetti',
+                category='celebration'
+            ),
+            'heart': EffectInfo(
+                id='5044134455711629726',
+                name='Heart',
+                emoji='❤️',
+                description='Loving hearts effect',
+                category='emotion'
+            ),
+            'thumbs_up': EffectInfo(
+                id='5107584321108051014',
+                name='Thumbs Up',
+                emoji='👍',
+                description='Positive thumbs up',
+                category='reaction'
+            ),
+            'thumbs_down': EffectInfo(
+                id='5104858069142078462',
+                name='Thumbs Down',
+                emoji='👎',
+                description='Negative thumbs down',
+                category='reaction'
+            ),
+            'poop': EffectInfo(
+                id='5046589136895476101',
+                name='Poop',
+                emoji='💩',
+                description='Funny poop effect',
+                category='humor'
+            ),
+            'hearts_shower': EffectInfo(
+                id='5159385139981059251',
+                name='Hearts Shower',
+                emoji='❤️❤️❤️',
+                description='Shower of hearts',
+                category='emotion'
+            )
+        }
+
+    def get_effect_id(self, effect_name: str) -> Optional[str]:
+        """Get effect ID by name."""
+        effect = self.effects.get(effect_name.lower())
+        return effect.id if effect else None
+    
+    def get_random_effect(self) -> str:
+        """Get a random effect name."""
+        return random.choice(list(self.effects.keys()))
+    
+    def get_all_effects(self) -> List[EffectInfo]:
+        """Get all available effects."""
+        return list(self.effects.values())
+
+    def get_random_private_effect(self) -> str:
+        """Get a random effect suitable for private chats."""
+        # Prefer emotion and celebration effects for private chats
+        private_friendly = ['heart', 'hearts_shower', 'party', 'fire']
+        available = [name for name in private_friendly if name in self.effects]
+        return random.choice(available) if available else self.get_random_effect()
+
 # Logging setup with clean formatting
 class ColoredFormatter(logging.Formatter):
     """Custom formatter with colors and clean layout."""
     
-    # ANSI color codes
     COLORS = {
         'DEBUG': '\033[36m',    # Cyan
         'INFO': '\033[32m',     # Green
@@ -137,38 +223,29 @@ class ColoredFormatter(logging.Formatter):
     }
     
     def format(self, record):
-        # Get color for log level
         color = self.COLORS.get(record.levelname, self.COLORS['RESET'])
         reset = self.COLORS['RESET']
-        
-        # Format timestamp
         timestamp = self.formatTime(record, '%H:%M:%S')
-        
-        # Create clean log format
         log_format = f"{color}[{timestamp}] {record.levelname:<8}{reset} {record.name:<15} | {record.getMessage()}"
         
-        # Handle exceptions
         if record.exc_info:
             log_format += f"\n{self.formatException(record.exc_info)}"
             
         return log_format
 
-# Configure logging with custom formatter
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(message)s',  # We'll handle formatting in ColoredFormatter
-    handlers=[
-        logging.StreamHandler()
-    ]
+    format='%(message)s',
+    handlers=[logging.StreamHandler()]
 )
 
-# Apply custom formatter to all handlers
 for handler in logging.root.handlers:
     handler.setFormatter(ColoredFormatter())
 
 logger = logging.getLogger(__name__)
 
-# Create separate loggers for different components with clean names
+# Create component loggers
 loggers = {
     'reaction': logging.getLogger('REACT'),
     'echo': logging.getLogger('ECHO'),
@@ -178,15 +255,15 @@ loggers = {
     'chat_action': logging.getLogger('ACTION'),
     'tracking': logging.getLogger('TRACK'),
     'commands': logging.getLogger('CMD'),
-    'errors': logging.getLogger('ERROR')
+    'errors': logging.getLogger('ERROR'),
+    'effects': logging.getLogger('EFFECTS')
 }
 
-# Apply formatter to all component loggers
 for component_logger in loggers.values():
     for handler in component_logger.handlers:
         handler.setFormatter(ColoredFormatter())
 
-# Disable telegram library's debug logs to keep terminal clean
+# Disable telegram library's debug logs
 logging.getLogger('telegram').setLevel(logging.WARNING)
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logging.getLogger('httpcore').setLevel(logging.WARNING)
@@ -197,6 +274,8 @@ user_ids = set()
 group_ids = set()
 broadcast_mode = {}
 
+# Initialize message effects
+message_effects = MessageEffects()
 
 async def send_chat_action(context, chat_id, action):
     """Send chat action without delay."""
@@ -213,7 +292,6 @@ async def send_chat_action(context, chat_id, action):
     except Exception as e:
         loggers['errors'].error(f"Unexpected error sending action: {str(e)[:50]}")
 
-
 def get_random_emoji():
     """Get a random soft emoji."""
     try:
@@ -222,8 +300,7 @@ def get_random_emoji():
         return emoji
     except Exception:
         loggers['errors'].error("Error selecting random emoji, using fallback")
-        return "💖"  # fallback emoji
-
+        return "💖"
 
 def get_random_reaction():
     """Get a random reaction emoji."""
@@ -233,8 +310,7 @@ def get_random_reaction():
         return reaction
     except Exception:
         loggers['errors'].error("Error selecting random reaction, using fallback")
-        return "👍"  # fallback reaction
-
+        return "👍"
 
 def create_user_mention(user):
     """Create a formatted mention string for a user."""
@@ -254,7 +330,6 @@ def create_user_mention(user):
     except Exception as e:
         loggers['errors'].error(f"Error creating user mention: {str(e)[:50]}")
         return "Unknown User"
-
 
 async def fetch_image():
     """Fetch a random image from Wallhaven API."""
@@ -286,7 +361,6 @@ async def fetch_image():
         loggers['api'].error(f"Unexpected error: {str(e)[:50]}")
     return None
 
-
 def get_message_type_and_action(message):
     """Determine message type and corresponding chat action."""
     for msg_type, action in MESSAGE_TYPE_ACTIONS.items():
@@ -296,11 +370,108 @@ def get_message_type_and_action(message):
             return msg_type, action
     return 'text', MESSAGE_TYPE_ACTIONS['text']
 
+async def send_message_with_effect(bot, chat_id, text=None, photo=None, caption=None, effect_id=None, reply_to_message_id=None, parse_mode=None):
+    """Send a message with visual effect using raw API call."""
+    try:
+        if not effect_id:
+            loggers['effects'].debug("No effect ID provided, sending normal message")
+            if photo:
+                return await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=caption,
+                    reply_to_message_id=reply_to_message_id,
+                    parse_mode=parse_mode
+                )
+            else:
+                return await bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_to_message_id=reply_to_message_id,
+                    parse_mode=parse_mode
+                )
 
-async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None):
+        loggers['effects'].info(f"Sending message with effect {effect_id} to chat {chat_id}")
+
+        # Use raw API call to send message with effect
+        async with aiohttp.ClientSession() as session:
+            api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+            
+            payload = {
+                "chat_id": chat_id,
+                "effect_id": effect_id,
+            }
+            
+            if photo:
+                api_url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendPhoto"
+                payload.update({
+                    "photo": photo,
+                    "caption": caption or ""
+                })
+            else:
+                payload["text"] = text or ""
+            
+            if reply_to_message_id:
+                payload["reply_to_message_id"] = reply_to_message_id
+            
+            if parse_mode:
+                payload["parse_mode"] = parse_mode
+
+            async with session.post(api_url, json=payload) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if result.get('ok'):
+                        loggers['effects'].info(f"Successfully sent message with effect")
+                        return result.get('result')
+                    else:
+                        loggers['effects'].error(f"API error: {result.get('description')}")
+                        # Fallback to normal message
+                        if photo:
+                            return await bot.send_photo(
+                                chat_id=chat_id,
+                                photo=photo,
+                                caption=caption,
+                                reply_to_message_id=reply_to_message_id,
+                                parse_mode=parse_mode
+                            )
+                        else:
+                            return await bot.send_message(
+                                chat_id=chat_id,
+                                text=text,
+                                reply_to_message_id=reply_to_message_id,
+                                parse_mode=parse_mode
+                            )
+                else:
+                    loggers['effects'].error(f"HTTP error: {response.status}")
+                    return None
+
+    except Exception as e:
+        loggers['effects'].error(f"Error sending message with effect: {str(e)[:50]}")
+        # Fallback to normal message
+        try:
+            if photo:
+                return await bot.send_photo(
+                    chat_id=chat_id,
+                    photo=photo,
+                    caption=caption,
+                    reply_to_message_id=reply_to_message_id,
+                    parse_mode=parse_mode
+                )
+            else:
+                return await bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    reply_to_message_id=reply_to_message_id,
+                    parse_mode=parse_mode
+                )
+        except Exception as fallback_error:
+            loggers['effects'].error(f"Fallback message also failed: {str(fallback_error)[:50]}")
+            return None
+
+async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=None, chat_type="private"):
     """Send a welcome image with a personalized message."""
     try:
-        loggers['image'].info(f"Starting image send for chat {chat_id}")
+        loggers['image'].info(f"Starting image send for chat {chat_id} (type: {chat_type})")
         
         # Show upload photo action
         try:
@@ -327,26 +498,62 @@ async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=N
         mention = create_user_mention(user)
         greeting = random.choice(WELCOME_MESSAGES).format(mention=mention)
 
+        # Determine if we should use effects (only for private chats)
+        effect_id = None
+        if chat_type == "private":
+            effect_name = message_effects.get_random_private_effect()
+            effect_id = message_effects.get_effect_id(effect_name)
+            loggers['effects'].info(f"Using effect '{effect_name}' (ID: {effect_id}) for private chat")
+
         try:
             if loading_msg:
-                await bot.edit_message_media(
-                    chat_id=chat_id,
-                    message_id=loading_msg.message_id,
-                    media=telegram.InputMediaPhoto(
-                        media=image_url,
+                # For loading message updates, we need to use edit_message_media
+                if chat_type == "private" and effect_id:
+                    # Delete loading message and send new one with effect
+                    try:
+                        await loading_msg.delete()
+                    except:
+                        pass
+                    
+                    await send_message_with_effect(
+                        bot=bot,
+                        chat_id=chat_id,
+                        photo=image_url,
                         caption=greeting,
+                        effect_id=effect_id,
+                        reply_to_message_id=reply_to_message_id,
                         parse_mode="HTML"
                     )
-                )
+                else:
+                    await bot.edit_message_media(
+                        chat_id=chat_id,
+                        message_id=loading_msg.message_id,
+                        media=telegram.InputMediaPhoto(
+                            media=image_url,
+                            caption=greeting,
+                            parse_mode="HTML"
+                        )
+                    )
                 loggers['image'].info("Successfully updated loading message with image")
             else:
-                await bot.send_photo(
-                    chat_id=chat_id,
-                    photo=image_url,
-                    caption=greeting,
-                    reply_to_message_id=reply_to_message_id,
-                    parse_mode="HTML"
-                )
+                if chat_type == "private" and effect_id:
+                    await send_message_with_effect(
+                        bot=bot,
+                        chat_id=chat_id,
+                        photo=image_url,
+                        caption=greeting,
+                        effect_id=effect_id,
+                        reply_to_message_id=reply_to_message_id,
+                        parse_mode="HTML"
+                    )
+                else:
+                    await bot.send_photo(
+                        chat_id=chat_id,
+                        photo=image_url,
+                        caption=greeting,
+                        reply_to_message_id=reply_to_message_id,
+                        parse_mode="HTML"
+                    )
                 loggers['image'].info("Successfully sent new image")
         except telegram.error.BadRequest:
             loggers['image'].warning("Bad request sending image, trying fallback")
@@ -356,7 +563,16 @@ async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=N
                 if loading_msg:
                     await loading_msg.edit_text(fallback_msg, parse_mode="HTML")
                 else:
-                    await bot.send_message(chat_id=chat_id, text=fallback_msg, parse_mode="HTML")
+                    if chat_type == "private" and effect_id:
+                        await send_message_with_effect(
+                            bot=bot,
+                            chat_id=chat_id,
+                            text=fallback_msg,
+                            effect_id=effect_id,
+                            parse_mode="HTML"
+                        )
+                    else:
+                        await bot.send_message(chat_id=chat_id, text=fallback_msg, parse_mode="HTML")
                 loggers['image'].info("Sent fallback text message")
             except Exception:
                 loggers['errors'].error("Fallback message also failed")
@@ -369,7 +585,6 @@ async def send_image(chat_id, user, bot, loading_msg=None, reply_to_message_id=N
     except Exception as e:
         loggers['errors'].critical(f"Critical error in send_image: {str(e)[:50]}")
         raise
-
 
 async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """React to a message based on chat type and content."""
@@ -416,7 +631,6 @@ async def react_to_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         loggers['errors'].critical(f"Critical error in react_to_message: {str(e)[:50]}")
 
-
 def track_chat_id(chat_id, chat_type):
     """Track user and group IDs."""
     try:
@@ -431,12 +645,12 @@ def track_chat_id(chat_id, chat_type):
     except Exception as e:
         loggers['errors'].error(f"Error tracking chat ID {chat_id}: {str(e)[:50]}")
 
-
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command."""
     try:
         user_id = update.effective_user.id if update.effective_user else None
-        loggers['commands'].info(f"/start from user {user_id}")
+        chat_type = update.effective_chat.type
+        loggers['commands'].info(f"/start from user {user_id} in {chat_type} chat")
         
         await react_to_message(update, context)
         user = update.effective_user
@@ -450,20 +664,41 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_button_state[user.id] = {"updates": False, "group": False, "addme": False}
 
         # Track chat ID
-        track_chat_id(chat_id, update.effective_chat.type)
+        track_chat_id(chat_id, chat_type)
 
         # Send typing action before responding
         await send_chat_action(context, chat_id, ChatAction.TYPING)
         
         # Send loading message and then welcome image
         emoji_msg = get_random_emoji()
-        try:
-            loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
-        except Exception as e:
-            loggers['errors'].error(f"Failed to send loading message: {str(e)[:50]}")
-            return
+        
+        # For private chats, use effects; for groups, keep normal behavior
+        loading_msg = None
+        if chat_type == "private":
+            # Send loading message with effect
+            effect_name = message_effects.get_random_private_effect()
+            effect_id = message_effects.get_effect_id(effect_name)
+            
+            try:
+                loading_msg = await send_message_with_effect(
+                    bot=context.bot,
+                    chat_id=chat_id,
+                    text=emoji_msg,
+                    effect_id=effect_id
+                )
+                loggers['effects'].info(f"Sent loading message with effect '{effect_name}'")
+            except Exception as e:
+                loggers['errors'].error(f"Failed to send loading message with effect: {str(e)[:50]}")
+                loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
+        else:
+            # Normal loading message for groups
+            try:
+                loading_msg = await context.bot.send_message(chat_id=chat_id, text=emoji_msg)
+            except Exception as e:
+                loggers['errors'].error(f"Failed to send loading message: {str(e)[:50]}")
+                return
 
-        await send_image(chat_id, user, context.bot, loading_msg=loading_msg)
+        await send_image(chat_id, user, context.bot, loading_msg=loading_msg, chat_type=chat_type)
         loggers['commands'].info(f"/start completed for user {user.id}")
         
     except Exception as e:
@@ -472,7 +707,6 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(ERROR_MESSAGES["general_error"])
         except:
             pass
-
 
 async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /ping command."""
@@ -510,7 +744,6 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(ERROR_MESSAGES["ping_failed"])
         except:
             pass
-
 
 async def broadcast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /broadcast command (owner only)."""
@@ -762,14 +995,33 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             try:
                 emoji_msg = get_random_emoji()
-                loading_msg = await context.bot.send_message(
-                    chat_id=message.chat_id,
-                    text=emoji_msg,
-                    reply_to_message_id=reply_id
-                )
+                loading_msg = None
+                
+                # For private chats, use effects; for groups, keep normal behavior
+                if chat_type == "private":
+                    # Send loading message with effect
+                    effect_name = message_effects.get_random_private_effect()
+                    effect_id = message_effects.get_effect_id(effect_name)
+                    
+                    loading_msg = await send_message_with_effect(
+                        bot=context.bot,
+                        chat_id=message.chat_id,
+                        text=emoji_msg,
+                        effect_id=effect_id,
+                        reply_to_message_id=reply_id
+                    )
+                    loggers['effects'].info(f"Sent keyword response with effect '{effect_name}'")
+                else:
+                    # Normal loading message for groups
+                    loading_msg = await context.bot.send_message(
+                        chat_id=message.chat_id,
+                        text=emoji_msg,
+                        reply_to_message_id=reply_id
+                    )
+                
                 logger.debug(f"✅ Keyword response emoji sent to chat {chat_id}")
                 
-                await send_image(message.chat_id, user, context.bot, loading_msg=loading_msg)
+                await send_image(message.chat_id, user, context.bot, loading_msg=loading_msg, chat_type=chat_type)
                 logger.info(f"✅ Keyword response completed for user {user_id}")
                 
             except Exception as e:
@@ -905,7 +1157,7 @@ def main():
     """Main function to run the bot."""
     try:
         print("\n" + "="*60)
-        print("🌸 SAKURA BOT STARTING 🌸")
+        print("🌸 SAKURA BOT WITH EFFECTS STARTING 🌸")
         print("="*60)
         
         if not BOT_TOKEN:
@@ -918,15 +1170,21 @@ def main():
         logger.info(f"🤖 Bot Token: {'*' * (len(BOT_TOKEN) - 8) + BOT_TOKEN[-8:]}")
         logger.info(f"👑 Owner ID: {OWNER_ID}")
         logger.info(f"🔑 Trigger Keyword: {TRIGGER_KEYWORD}")
+        logger.info(f"✨ Message Effects: {len(message_effects.effects)} effects loaded")
+
+        # Log available effects
+        effects_list = [f"{info.name} ({info.emoji})" for info in message_effects.get_all_effects()]
+        logger.info(f"🎭 Available Effects: {', '.join(effects_list)}")
 
         app = setup_bot()
-        logger.info("✅ Bot is running with anime, echo, and broadcast features 👻")
+        logger.info("✅ Bot is running with anime, echo, broadcast and message effects features 👻✨")
 
         # Log initial stats
         logger.info(f"📊 Initial Stats - Users: {len(user_ids)}, Groups: {len(group_ids)}")
         
         print("="*60)
-        print("✅ Bot is now running! Press Ctrl+C to stop.")
+        print("✅ Bot is now running with message effects! Press Ctrl+C to stop.")
+        print("🎭 Effects will be applied to private chat messages only!")
         print("="*60 + "\n")
 
         app.run_polling()
