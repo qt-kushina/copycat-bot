@@ -1,18 +1,28 @@
 import os
+import time
+import random
 import asyncio
 import logging
-import random
-import time
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import aiohttp
 import telegram
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReactionTypeEmoji
+from telegram import (
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    ReactionTypeEmoji,
+)
 from telegram.constants import ChatAction
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler, CallbackQueryHandler,
-    filters, ContextTypes, Defaults
+    ApplicationBuilder,
+    CallbackQueryHandler,
+    CommandHandler,
+    ContextTypes,
+    Defaults,
+    MessageHandler,
+    filters,
 )
 
 # Configuration
