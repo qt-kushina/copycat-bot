@@ -480,31 +480,31 @@ async def ping_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id if update.effective_user else None
         loggers['commands'].info(f"/ping from user {user_id}")
-        
+
         await react_to_message(update, context)
-        
+
         # Show typing action before ping
         await send_chat_action(context, update.effective_chat.id, ChatAction.TYPING)
-        
+
         start_time = time.time()
         try:
             msg = await update.message.reply_text(STATUS_MESSAGES["pinging"])
         except Exception as e:
             loggers['errors'].error(f"Failed to send ping message: {str(e)[:50]}")
             return
-            
-        latency = int((time.time() - start_time) * 1000)
-        
+
+        response_time = round((time.time() - start_time) * 1000, 2)
+
         try:
             await msg.edit_text(
-                f"🏓 <a href='https://t.me/SoulMeetsHQ'>PONG!</a> {latency}ms",
+                f"🏓 <a href='https://t.me/SoulMeetsHQ'>Pong!</a> {response_time}ms",
                 parse_mode="HTML",
                 disable_web_page_preview=True
             )
-            loggers['commands'].info(f"/ping completed with {latency}ms latency")
+            loggers['commands'].info(f"/ping completed with {response_time}ms latency")
         except Exception as e:
             loggers['errors'].error(f"Failed to edit ping message: {str(e)[:50]}")
-            
+
     except Exception as e:
         loggers['errors'].critical(f"Critical error in /ping: {str(e)[:50]}")
         try:
